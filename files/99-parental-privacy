@@ -181,7 +181,7 @@ if ! uci get wireless.kids_wifi >/dev/null 2>&1; then
     uci set wireless.kids_wifi.mode='ap'
     uci set wireless.kids_wifi.ssid="$KIDS_SSID"
     uci set wireless.kids_wifi.encryption='psk2'
-    uci set wireless.kids_wifi.key='KidsSafePassword'
+    uci set wireless.kids_wifi.key="$KIDS_PASS"
     uci set wireless.kids_wifi.disabled='1'
 fi
 
@@ -195,7 +195,7 @@ if [ -n "$RADIO_5G" ]; then
         uci set wireless.kids_wifi_5g.mode='ap'
         uci set wireless.kids_wifi_5g.ssid="$KIDS_SSID"
         uci set wireless.kids_wifi_5g.encryption='psk2'
-        uci set wireless.kids_wifi_5g.key='KidsSafePassword'
+        uci set wireless.kids_wifi_5g.key="$KIDS_PASS"
         uci set wireless.kids_wifi_5g.disabled='1'
     fi
 fi
@@ -210,7 +210,7 @@ if [ -n "$RADIO_6G" ]; then
         uci set wireless.kids_wifi_6g.mode='ap'
         uci set wireless.kids_wifi_6g.ssid="$KIDS_SSID"
         uci set wireless.kids_wifi_6g.encryption='sae'
-        uci set wireless.kids_wifi_6g.key='KidsSafePassword'
+        uci set wireless.kids_wifi_6g.key="$KIDS_PASS"
         uci set wireless.kids_wifi_6g.disabled='1'
     fi
 fi
