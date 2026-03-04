@@ -1,0 +1,42 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: applications/luci-app-parental-privacy-vlan/root/usr/share/luci/menu.d/luci-app-parental-privacy-vlan.json:3
+msgid "Parental Privacy"
+msgstr "Parental Privacy"
+
+#: applications/luci-app-parental-privacy-vlan/htdocs/luci-static/resources/view/parental-privacy/vlan.js:10
+msgid "Parental Privacy VLAN Settings"
+msgstr "Parental Privacy VLAN Settings"
+
+#: applications/luci-app-parental-privacy-vlan/htdocs/luci-static/resources/view/parental-privacy/vlan.js:11
+msgid "Configure VLAN-based isolation and privacy rules for parental control."
+msgstr "Configure VLAN-based isolation and privacy rules for parental control."
+
+#: applications/luci-app-parental-privacy-vlan/htdocs/luci-static/resources/view/parental-privacy/vlan.js:15
+msgid "Enable Privacy VLAN"
+msgstr "Enable Privacy VLAN"
+
+#: applications/luci-app-parental-privacy-vlan/htdocs/luci-static/resources/view/parental-privacy/vlan.js:20
+msgid "VLAN ID"
+msgstr "VLAN ID"
+
+#: applications/luci-app-parental-privacy-vlan/htdocs/luci-static/resources/view/parental-privacy/vlan.js:21
+msgid "The numeric ID of the VLAN used for isolated devices."
+msgstr "The numeric ID of the VLAN used for isolated devices."
+
+#: applications/luci-app-parental-privacy-vlan/htdocs/luci-static/resources/view/parental-privacy/vlan.js:25
+msgid "Force DNS Privacy"
+msgstr "Force DNS Privacy"
+
+#: applications/luci-app-parental-privacy-vlan/htdocs/luci-static/resources/view/parental-privacy/vlan.js:26
+msgid "Redirect all DNS queries to a secure, filtered DNS provider."
+msgstr "Redirect all DNS queries to a secure, filtered DNS provider."
+
+#: applications/luci-app-parental-privacy-vlan/htdocs/luci-static/resources/view/parental-privacy/vlan.js:30
+msgid "Isolate VLAN"
+msgstr "Isolate VLAN"
+
+#: applications/luci-app-parental-privacy-vlan/htdocs/luci-static/resources/view/parental-privacy/vlan.js:31
+msgid "Prevent devices in this VLAN from communicating with the main LAN."
+msgstr "Prevent devices in this VLAN from communicating with the main LAN."
