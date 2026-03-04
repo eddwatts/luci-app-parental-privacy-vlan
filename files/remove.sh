@@ -60,7 +60,7 @@ uci commit parental_privacy 2>/dev/null
 
 # ── Reload services ──────────────────────────────────────────────────────────
 ubus call network.interface.kids down 2>/dev/null
-/etc/init.d/dnsmasq reload [cite: 1, 58]
-/etc/init.d/firewall reload [cite: 1, 58]
+/etc/init.d/dnsmasq reload
+/etc/init.d/firewall reload
 
 logger -t parental-privacy "Kids Network removed successfully"
