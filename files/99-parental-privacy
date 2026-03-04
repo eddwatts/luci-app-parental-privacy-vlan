@@ -40,6 +40,24 @@ for day in Fri Sat; do
 done
 uci commit parental_privacy
 
+# ── Random Password (generated once at install, before any UCI writes) ────────
+# Falls back through three methods: openssl, /dev/urandom+tr, date hash.
+# The password is stored in the parental_privacy UCI config so the dashboard
+# and wizard can display / pre-fill it without re-reading the wireless config.
+if ! uci -q get parental_privacy.default.wifi_password >/dev/null 2>&1; then
+    if command -v openssl >/dev/null 2>&1; then
+        KIDS_PASS=$(openssl rand -base64 12 | tr -dc 'A-Za-z0-9' | head -c 12)
+    else
+        KIDS_PASS=$(cat /dev/urandom | tr -dc 'A-Za-z0-9' 2>/dev/null | head -c 12)
+    fi
+    # Guarantee minimum length even if entropy source was thin
+    [ ${#KIDS_PASS} -lt 8 ] && KIDS_PASS="Kids$(date +%s | tail -c 6)!"
+    uci set parental_privacy.default.wifi_password="$KIDS_PASS"
+    uci commit parental_privacy
+else
+    KIDS_PASS=$(uci get parental_privacy.default.wifi_password)
+fi
+
 # ── Dynamic SSID ─────────────────────────────────────────────────────────────
 PRIMARY_SSID=$(uci get wireless.@wifi-iface[0].ssid 2>/dev/null)
 [ -z "$PRIMARY_SSID" ] && PRIMARY_SSID="OpenWrt"
@@ -115,6 +133,16 @@ if ! uci get firewall.kids_zone >/dev/null 2>&1; then
     uci set firewall.kids_dns_intercept.dest_port='53'
     uci set firewall.kids_dns_intercept.proto='tcp udp'
     uci set firewall.kids_dns_intercept.target='DNAT'
+
+    # Intercept any IPv6 DNS not aimed at the router and redirect it back
+    uci set firewall.kids_dns_intercept6=redirect
+    uci set firewall.kids_dns_intercept6.name='Intercept-Kids-DNS6'
+    uci set firewall.kids_dns_intercept6.src='kids'
+    uci set firewall.kids_dns_intercept6.src_dport='53'
+    uci set firewall.kids_dns_intercept6.dest_port='53'
+    uci set firewall.kids_dns_intercept6.proto='tcp udp'
+    uci set firewall.kids_dns_intercept6.target='DNAT'
+    uci set firewall.kids_dns_intercept6.family='ipv6'
 
     # Allow ICMP
     uci set firewall.kids_icmp=rule
