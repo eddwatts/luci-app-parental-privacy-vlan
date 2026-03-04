@@ -4,9 +4,38 @@
 # Uses VLAN 10 on br-lan for true single-NAT isolation.
 # Consoles and other devices get NAT Type 2 (Moderate) or better.
 
-KIDS_IP="172.28.10.1"
-KIDS_VLAN="10"
 INSTALL_DIR="/usr/share/parental-privacy"
+
+# ── VLAN selection ────────────────────────────────────────────────────────────
+# Pick the first unused VLAN ID from the preferred list.
+# Checks both UCI bridge-vlan configs and live kernel VLAN interfaces so we
+# never clash with an existing VLAN (e.g. IPTV, VoIP, guest networks).
+pick_vlan() {
+    for candidate in 10 20 30 40 50 60 70 80 90 100; do
+        # Check UCI network config for any bridge-vlan using this ID
+        if uci show network 2>/dev/null | grep -q "\.vlan='${candidate}'"; then
+            continue
+        fi
+        # Check kernel for live br-lan.<vlan> or vlan<id> interfaces
+        if ip link show 2>/dev/null | grep -qE "br-lan\.${candidate}[^0-9]|vlan${candidate}[^0-9]"; then
+            continue
+        fi
+        # Check /proc/net/vlan/config if it exists (swconfig systems)
+        if [ -f /proc/net/vlan/config ] && grep -q "[[:space:]]${candidate}[[:space:]]" /proc/net/vlan/config 2>/dev/null; then
+            continue
+        fi
+        echo "$candidate"
+        return
+    done
+    # Extremely unlikely but safe fallback
+    echo "10"
+}
+
+KIDS_VLAN=$(pick_vlan)
+# Derive the kids subnet from the VLAN ID: 172.28.<vlan>.x
+KIDS_IP="172.28.${KIDS_VLAN}.1"
+
+logger -t parental-privacy "Using VLAN ${KIDS_VLAN} (subnet 172.28.${KIDS_VLAN}.0/24)"
 
 # Ensure installed scripts are executable
 mkdir -p "$INSTALL_DIR"
@@ -32,6 +61,8 @@ fi
 uci -q batch <<'EOF'
 set parental_privacy.default=config
 EOF
+# Persist the chosen VLAN so bandwidth.sh and other scripts can read it at runtime
+uci set parental_privacy.default.vlan_id="$KIDS_VLAN"
 for day in Mon Tue Wed Thu Sun; do
     uci set parental_privacy.default.schedule_$day='06:00-20:00'
 done
@@ -96,6 +127,7 @@ if ! uci get dhcp.kids >/dev/null 2>&1; then
     uci set dhcp.kids.start='100'
     uci set dhcp.kids.limit='150'
     uci set dhcp.kids.leasetime='1h'
+    uci add_list dhcp.kids.dhcp_option="3,${KIDS_IP}"
     uci add_list dhcp.kids.dhcp_option="6,1.1.1.3,1.0.0.3"
 fi
 
