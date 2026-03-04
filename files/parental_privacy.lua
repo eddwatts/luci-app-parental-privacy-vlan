@@ -283,11 +283,14 @@ function action_apply()
                 sys.call("/etc/init.d/cron restart")
             end
         end
-
         uci:commit("wireless")
         uci:commit("dhcp")
         uci:commit("firewall")
-        sys.call("wifi reload & /etc/init.d/dnsmasq restart & /etc/init.d/firewall restart")
+        uci:commit("parental_privacy")
+        sys.call("/etc/init.d/firewall reload")
+        sys.call("/etc/init.d/dnsmasq reload")
+        luci.sys.call("ubus call network.interface.kids " .. (state == "0" and "up" or "down"))
+        sys.call("/etc/init.d/parental-privacy restart")
     end)
 
     http.write(json.stringify({success=ok, error=err}))
