@@ -5,6 +5,10 @@
 
 logger -t parental-privacy "Removing Kids Network configuration"
 
+if [ -f /etc/init.d/parental-privacy ]; then
+    /etc/init.d/parental-privacy stop
+    /etc/init.d/parental-privacy disable
+fi
 # ── Wireless ─────────────────────────────────────────────────────────────────
 uci delete wireless.kids_wifi     2>/dev/null
 uci delete wireless.kids_wifi_5g  2>/dev/null
@@ -55,9 +59,8 @@ uci commit firewall
 uci commit parental_privacy 2>/dev/null
 
 # ── Reload services ──────────────────────────────────────────────────────────
-wifi reload
-/etc/init.d/dnsmasq restart
-/etc/init.d/firewall restart
-/etc/init.d/network restart
+ubus call network.interface.kids down 2>/dev/null
+/etc/init.d/dnsmasq reload [cite: 1, 58]
+/etc/init.d/firewall reload [cite: 1, 58]
 
 logger -t parental-privacy "Kids Network removed successfully"
