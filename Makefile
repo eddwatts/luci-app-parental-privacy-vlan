@@ -11,6 +11,7 @@ PKG_MAINTAINER:=Edward Watts <edd@eddtech.co.uk>
 PKG_LICENSE:=GPL-2.0-or-later
 
 include $(INCLUDE_DIR)/package.mk
+include $(TOPDIR)/feeds/luci/luci.mk
 
 define Package/luci-app-parental-privacy-vlan
   SECTION:=luci
@@ -29,11 +30,17 @@ define Package/luci-app-parental-privacy-vlan/description
 endef
 
 define Build/Compile
+	$(foreach po,$(wildcard $(PKG_BUILD_DIR)/po/*/*.po), \
+		$(STAGING_DIR_HOST)/bin/po2lmo \
+			$(po) \
+			$(PKG_BUILD_DIR)/po/$(notdir $(po:.po=.lmo)); \
+	)
 endef
 
 define Package/luci-app-parental-privacy-vlan/install
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/view/parental_privacy
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/i18n
 	$(INSTALL_DIR) $(1)/usr/share/parental-privacy
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
@@ -52,6 +59,10 @@ define Package/luci-app-parental-privacy-vlan/install
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/files/kids_network.htm $(1)/usr/lib/lua/luci/view/parental_privacy/
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/files/wizard.htm $(1)/usr/lib/lua/luci/view/parental_privacy/
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/files/luci-app-parental-privacy.json $(1)/usr/share/rpcd/acl.d/
+
+	$(if $(wildcard $(PKG_BUILD_DIR)/po/*.lmo), \
+		$(INSTALL_DATA) $(PKG_BUILD_DIR)/po/*.lmo $(1)/usr/lib/lua/luci/i18n/, \
+	)
 endef
 
 $(eval $(call BuildPackage,luci-app-parental-privacy-vlan))
