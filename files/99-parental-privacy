@@ -187,6 +187,9 @@ if [ -n "$RADIO_6G" ]; then
     fi
 fi
 
+# ── SafeSearch (default on) ──────────────────────────────────────────────────
+/usr/share/parental-privacy/safesearch.sh enable
+
 # ── Commit & Restart ─────────────────────────────────────────────────────────
 uci commit network
 uci commit dhcp
