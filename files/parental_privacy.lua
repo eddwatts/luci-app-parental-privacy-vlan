@@ -222,6 +222,25 @@ function action_apply()
                 end
 
                 local days_map = {Mon="1", Tue="2", Wed="3", Thu="4", Fri="5", Sat="6", Sun="0"}
+
+                -- Determine the UTC offset in whole hours so cron (which runs in UTC
+                -- on most OpenWrt builds) fires at the correct wall-clock time.
+                -- We use the POSIX trick: compare `date +%H` in local time against
+                -- `TZ=UTC date +%H` and compute the signed difference.
+                local tz_offset = 0
+                do
+                    local local_h_str = sys.exec("date +%H 2>/dev/null"):match("(%d+)")
+                    local utc_h_str   = sys.exec("TZ=UTC date +%H 2>/dev/null"):match("(%d+)")
+                    if local_h_str and utc_h_str then
+                        local lh = tonumber(local_h_str) or 0
+                        local uh = tonumber(utc_h_str)   or 0
+                        tz_offset = lh - uh
+                        -- Clamp to [-12, 14] to guard against midnight-crossing artefacts
+                        if tz_offset > 14  then tz_offset = tz_offset - 24 end
+                        if tz_offset < -12 then tz_offset = tz_offset + 24 end
+                    end
+                end
+                    
                 for day, hours in pairs(data.schedule_data) do
                     for h = 0, 23 do
                         -- Compare this hour's state against the previous hour to find transitions.
