@@ -52,7 +52,7 @@ function action_status()
         primary_ssid   = primary_ssid,
         suggested_ssid = suggested,
         devices        = leases,
-        uptime         = sys.uptime()
+        uptime         = sys.uptime(),
         button_config  = {
             btn0  = (uci:get("parental_privacy", "default", "button_btn0")  == "1"),
             wps   = (uci:get("parental_privacy", "default", "button_wps")   == "1"),
