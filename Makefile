@@ -17,12 +17,10 @@ define Package/luci-app-parental-privacy-vlan
   SECTION:=luci
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
-  TITLE:=Parental Privacy Wizard
+  TITLE:=Parental Privacy Wizard (VLAN edition)
   DEPENDS:=+luci-base +tc-full +kmod-sched-core +nftables @(TARGET_x86||TARGET_ath79||TARGET_ramips||TARGET_mediatek)
   PKGARCH:=all
 endef
-
-TITLE:=Parental Privacy Wizard (VLAN edition)
 
 define Package/luci-app-parental-privacy-vlan/description
   Isolated Kids WiFi with DNS filtering, schedules, and bandwidth limiting.
@@ -56,6 +54,7 @@ endef
 
 
 $(eval $(call BuildPackage,luci-app-parental-privacy-vlan))
+
 
 
 
