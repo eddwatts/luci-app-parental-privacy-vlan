@@ -1,0 +1,44 @@
+#!/bin/sh
+# /usr/libexec/rpcd/parental-privacy
+#
+# rpcd backend for luci-app-parental-privacy.
+# Exposes four methods to the LuCI JS frontend via ubus/rpcd.
+#
+# Test from CLI:
+#   rpcd call parental-privacy status '{}'
+#   rpcd call parental-privacy extend '{}'
+#   rpcd call parental-privacy remove '{}'
+#   echo '{"ssid":"Test_Kids","password":"testpass1"}' | rpcd call parental-privacy apply
+
+SCRIPTS="/usr/share/parental-privacy"
+
+case "$1" in
+    list)
+        # Advertise available methods and their expected input types.
+        # Empty objects mean the method accepts (and ignores) any input.
+        cat <<'EOF'
+{
+    "status":  {},
+    "apply":   { "stage": "string", "data": "string" },
+    "extend":  {},
+    "remove":  {}
+}
+EOF
+        ;;
+    call)
+        case "$2" in
+            status) exec "$SCRIPTS/rpc-status.sh"  ;;
+            apply)  exec "$SCRIPTS/rpc-apply.sh"   ;;
+            extend) exec "$SCRIPTS/rpc-extend.sh"  ;;
+            remove) exec "$SCRIPTS/rpc-remove.sh"  ;;
+            *)
+                echo '{"error":"unknown method"}'
+                exit 1
+                ;;
+        esac
+        ;;
+    *)
+        echo '{"error":"usage: parental-privacy {list|call <method>}"}'
+        exit 1
+        ;;
+esac

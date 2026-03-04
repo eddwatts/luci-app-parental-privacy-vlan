@@ -1,11 +1,17 @@
 {
   "luci-app-parental-privacy": {
-    "description": "Grant UCI access for Parental Privacy Wizard",
+    "description": "Parental Privacy — Kids Network management",
     "read": {
-      "uci": ["dhcp","wireless","network","firewall","parental_privacy"]
+      "uci": ["dhcp", "wireless", "network", "firewall", "parental_privacy"],
+      "ubus": {
+        "parental-privacy": ["status"]
+      }
     },
     "write": {
-      "uci": ["dhcp","wireless","network","firewall","parental_privacy"]
+      "uci": ["dhcp", "wireless", "network", "firewall", "parental_privacy"],
+      "ubus": {
+        "parental-privacy": ["apply", "extend", "remove"]
+      }
     },
     "menu": {
       "admin/network/parental_privacy": {
@@ -15,9 +21,23 @@
           "type": "alias",
           "path": "admin/network/parental_privacy/kids"
         }
+      },
+      "admin/network/parental_privacy/kids": {
+        "title": "Dashboard",
+        "order": 1,
+        "action": {
+          "type": "view",
+          "path": "parental_privacy/dashboard"
+        }
+      },
+      "admin/network/parental_privacy/wizard": {
+        "title": "Setup Wizard",
+        "order": 2,
+        "action": {
+          "type": "view",
+          "path": "parental_privacy/wizard"
+        }
       }
     }
   }
-
 }
-
