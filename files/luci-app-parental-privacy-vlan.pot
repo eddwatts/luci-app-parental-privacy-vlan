@@ -1,0 +1,678 @@
+# Parental Privacy — LuCI application
+# Copyright (C) 2024 Edward Watts
+# This file is distributed under the same license as the luci-app-parental-privacy-vlan package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: luci-app-parental-privacy-vlan 1.0.0\n"
+"POT-Creation-Date: 2026-03-04 13:54+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: kids_network.htm:6
+msgid "Kids Network"
+msgstr ""
+
+#: kids_network.htm:6
+msgid "Parental Privacy"
+msgstr ""
+
+#: kids_network.htm:195
+msgid "Network"
+msgstr ""
+
+#: kids_network.htm:199
+msgid "unsaved changes"
+msgstr ""
+
+#: kids_network.htm:207
+msgid "All settings for your isolated children's WiFi — managed in one place."
+msgstr ""
+
+#: kids_network.htm:211
+msgid "Kids WiFi Active"
+msgstr ""
+
+#: kids_network.htm:218
+msgid "Devices Online"
+msgstr ""
+
+#: kids_network.htm:222
+msgid "Active SSID"
+msgstr ""
+
+#: kids_network.htm:226
+msgid "DNS Resolver"
+msgstr ""
+
+#: kids_network.htm:230
+msgid "Schedule"
+msgstr ""
+
+#: kids_network.htm:238
+msgid "WiFi Settings"
+msgstr ""
+
+#: kids_network.htm:239
+msgid "SSID, password, band"
+msgstr ""
+
+#: kids_network.htm:245
+msgid "SSID — Network Name"
+msgstr ""
+
+#: kids_network.htm:249
+msgid "Use suggested name:"
+msgstr ""
+
+#: kids_network.htm:254
+msgid "Password"
+msgstr ""
+
+#: kids_network.htm:255
+msgid "min. 8 characters"
+msgstr ""
+
+#: kids_network.htm:256
+msgid "Minimum 8 characters for WPA2-PSK encryption."
+msgstr ""
+
+#: kids_network.htm:260
+msgid "Frequency Band"
+msgstr ""
+
+#: kids_network.htm:264
+msgid "2.4 GHz"
+msgstr ""
+
+#: kids_network.htm:266
+msgid "Better range through walls. Ideal for whole-home coverage."
+msgstr ""
+
+#: kids_network.htm:270
+msgid "5 GHz"
+msgstr ""
+
+#: kids_network.htm:272
+msgid "Faster speeds, shorter range. Good for nearby devices."
+msgstr ""
+
+#: kids_network.htm:276
+msgid "6 GHz"
+msgstr ""
+
+#: kids_network.htm:278
+msgid "Ultra-fast Wi-Fi 6E/7. Requires WPA3 support."
+msgstr ""
+
+#: kids_network.htm:282
+msgid "All Bands"
+msgstr ""
+
+#: kids_network.htm:284
+msgid "Unified SSID across all available radios."
+msgstr ""
+
+#: kids_network.htm:290
+msgid "Isolate clients from each other"
+msgstr ""
+
+#: kids_network.htm:291
+msgid "Prevents devices on this network from talking to each other"
+msgstr ""
+
+#: kids_network.htm:297
+msgid "Block access to home LAN"
+msgstr ""
+
+#: kids_network.htm:298
+msgid "Kids' devices cannot reach printers, NAS, or home devices — internet only"
+msgstr ""
+
+#: kids_network.htm:309
+msgid "DNS &amp; Content Filtering"
+msgstr ""
+
+#: kids_network.htm:310
+msgid "DHCP Option 6 — zero overhead"
+msgstr ""
+
+#: kids_network.htm:315
+msgid "DNS is pushed to devices via"
+msgstr ""
+
+#: kids_network.htm:316
+msgid "The router does zero content inspection — all filtering happens at the DNS provider."
+msgstr ""
+
+#: kids_network.htm:317
+msgid "A firewall rule prevents any device from bypassing it."
+msgstr ""
+
+#: kids_network.htm:322
+msgid "Family Safe"
+msgstr ""
+
+#: kids_network.htm:323
+msgid "Cloudflare Family"
+msgstr ""
+
+#: kids_network.htm:325
+msgid "Blocks malware + adult content. No account. Fast global network."
+msgstr ""
+
+#: kids_network.htm:329
+msgid "Strict"
+msgstr ""
+
+#: kids_network.htm:330
+msgid "CleanBrowsing"
+msgstr ""
+
+#: kids_network.htm:332
+msgid "Blocks adult content, proxies &amp; VPN bypass sites."
+msgstr ""
+
+#: kids_network.htm:337
+msgid "OpenDNS Family"
+msgstr ""
+
+#: kids_network.htm:339
+msgid "Cisco-backed. Blocks adult content. No account needed."
+msgstr ""
+
+#: kids_network.htm:343
+msgid "Malware Only"
+msgstr ""
+
+#: kids_network.htm:344
+msgid "Quad9 Secure"
+msgstr ""
+
+#: kids_network.htm:346
+msgid "Blocks malware/phishing only. No adult content filter. Non-profit."
+msgstr ""
+
+#: kids_network.htm:351
+msgid "AdGuard Family"
+msgstr ""
+
+#: kids_network.htm:353
+msgid "Blocks ads, trackers &amp; adult content. European servers."
+msgstr ""
+
+#: kids_network.htm:357
+msgid "Custom"
+msgstr ""
+
+#: kids_network.htm:358
+msgid "Custom DNS"
+msgstr ""
+
+#: kids_network.htm:360
+msgid "Enter any DNS resolver IP manually."
+msgstr ""
+
+#: kids_network.htm:365
+msgid "Custom DNS Server IP"
+msgstr ""
+
+#: kids_network.htm:372
+msgid "Block DNS bypass (port 53 DNAT)"
+msgstr ""
+
+#: kids_network.htm:373
+msgid "Firewall redirects all outbound DNS back to the router — devices cannot use their own DNS"
+msgstr ""
+
+#: kids_network.htm:379
+msgid "Block DNS-over-HTTPS (DoH) bypass"
+msgstr ""
+
+#: kids_network.htm:380
+msgid "Blocks known DoH providers so browsers can't silently bypass the DNS filter"
+msgstr ""
+
+#: kids_network.htm:391
+msgid "Bedtime Schedule"
+msgstr ""
+
+#: kids_network.htm:392
+msgid "Auto on/off by day &amp; hour"
+msgstr ""
+
+#: kids_network.htm:398
+msgid "Enable automatic schedule"
+msgstr ""
+
+#: kids_network.htm:399
+msgid "Kids WiFi turns off outside the allowed hours shown below"
+msgstr ""
+
+#: kids_network.htm:406
+msgid "WiFi ON"
+msgstr ""
+
+#: kids_network.htm:407
+msgid "WiFi OFF (bedtime)"
+msgstr ""
+
+#: kids_network.htm:408
+msgid "Click or drag cells to toggle"
+msgstr ""
+
+#: kids_network.htm:413
+msgid "Quick Preset"
+msgstr ""
+
+#: kids_network.htm:415
+msgid "— Choose a preset —"
+msgstr ""
+
+#: kids_network.htm:416
+msgid "School days (8pm school nights / 9pm weekends)"
+msgstr ""
+
+#: kids_network.htm:417
+msgid "Strict (9am–8pm every day)"
+msgstr ""
+
+#: kids_network.htm:418
+msgid "Weekends only (Fri 4pm – Sun 10pm)"
+msgstr ""
+
+#: kids_network.htm:419
+msgid "Always on (remove restrictions)"
+msgstr ""
+
+#: kids_network.htm:423
+msgid "Timezone"
+msgstr ""
+
+#: kids_network.htm:441
+msgid "Connected Devices"
+msgstr ""
+
+#: kids_network.htm:448
+msgid "Blocking a device adds its MAC address to a deny list on this network only. It will not affect the device on other networks."
+msgstr ""
+
+#: kids_network.htm:457
+msgid "Hardware Kill-Switch"
+msgstr ""
+
+#: kids_network.htm:458
+msgid "GPIO / physical button toggle"
+msgstr ""
+
+#: kids_network.htm:464
+msgid "Enable hardware button"
+msgstr ""
+
+#: kids_network.htm:465
+msgid "Assigns a physical router button to instantly toggle Kids WiFi on/off"
+msgstr ""
+
+#: kids_network.htm:473
+msgid "GPIO Pin / Button ID"
+msgstr ""
+
+#: kids_network.htm:474
+msgid "Common values: 0 = WPS button, 11 = Reset. Check your router's page on the OpenWrt Hardware wiki."
+msgstr ""
+
+#: kids_network.htm:481
+msgid "LED feedback on toggle"
+msgstr ""
+
+#: kids_network.htm:482
+msgid "Blink the router's status LED when Kids WiFi is switched"
+msgstr ""
+
+#: kids_network.htm:488
+msgid "Long-press only (3 seconds)"
+msgstr ""
+
+#: kids_network.htm:489
+msgid "Prevents accidental toggling — must hold button for 3 seconds"
+msgstr ""
+
+#: kids_network.htm:494
+msgid "The plugin writes a hotplug script to"
+msgstr ""
+
+#: kids_network.htm:496
+msgid "Each press toggles"
+msgstr ""
+
+#: kids_network.htm:496
+msgid "and runs"
+msgstr ""
+
+#: kids_network.htm:496
+msgid "no reboot required."
+msgstr ""
+
+#: kids_network.htm:500
+msgid "Built-in Button Assignments"
+msgstr ""
+
+#: kids_network.htm:502
+msgid "Only enable buttons you want to use for Kids WiFi. Avoid enabling"
+msgstr ""
+
+#: kids_network.htm:503
+msgid "Reset"
+msgstr ""
+
+#: kids_network.htm:503
+msgid "unless you are sure —"
+msgstr ""
+
+#: kids_network.htm:504
+msgid "it may interfere with factory reset on some routers."
+msgstr ""
+
+#: kids_network.htm:508
+msgid "BTN_0 — Hardware Slider"
+msgstr ""
+
+#: kids_network.htm:509
+msgid "GL.iNet and similar routers. Slide ON = WiFi on, slide OFF = WiFi off."
+msgstr ""
+
+#: kids_network.htm:515
+msgid "WPS Button"
+msgstr ""
+
+#: kids_network.htm:516
+msgid "Single press toggles Kids WiFi. Available on most consumer routers."
+msgstr ""
+
+#: kids_network.htm:522
+msgid "Reset Button"
+msgstr ""
+
+#: kids_network.htm:523
+msgid "Single press toggles Kids WiFi."
+msgstr ""
+
+#: kids_network.htm:523
+msgid "Will prevent factory reset while enabled."
+msgstr ""
+
+#: kids_network.htm:523
+msgid "Use with caution."
+msgstr ""
+
+#: kids_network.htm:534
+msgid "Subnet &amp; Network"
+msgstr ""
+
+#: kids_network.htm:535
+msgid "IP range, DHCP, bandwidth"
+msgstr ""
+
+#: kids_network.htm:541
+msgid "Kids Gateway IP"
+msgstr ""
+
+#: kids_network.htm:543
+msgid "Router's IP on the kids subnet. Devices receive addresses in this range."
+msgstr ""
+
+#: kids_network.htm:546
+msgid "Subnet Mask"
+msgstr ""
+
+#: kids_network.htm:550
+msgid "DHCP Range Start"
+msgstr ""
+
+#: kids_network.htm:554
+msgid "DHCP Range Limit"
+msgstr ""
+
+#: kids_network.htm:558
+msgid "Lease Time"
+msgstr ""
+
+#: kids_network.htm:560
+msgid "30 minutes"
+msgstr ""
+
+#: kids_network.htm:561
+msgid "1 hour"
+msgstr ""
+
+#: kids_network.htm:562
+msgid "4 hours"
+msgstr ""
+
+#: kids_network.htm:563
+msgid "12 hours"
+msgstr ""
+
+#: kids_network.htm:567
+msgid "Max Bandwidth Per Device"
+msgstr ""
+
+#: kids_network.htm:569
+msgid "Unlimited"
+msgstr ""
+
+#: kids_network.htm:570
+msgid "5 Mbit/s"
+msgstr ""
+
+#: kids_network.htm:571
+msgid "10 Mbit/s"
+msgstr ""
+
+#: kids_network.htm:572
+msgid "20 Mbit/s"
+msgstr ""
+
+#: kids_network.htm:573
+msgid "50 Mbit/s"
+msgstr ""
+
+#: kids_network.htm:574
+msgid "100 Mbit/s"
+msgstr ""
+
+#: kids_network.htm:576
+msgid "Requires tc + iptables-mod-ipopt. Applied per device via tc qdisc."
+msgstr ""
+
+#: kids_network.htm:586
+msgid "Activity Log"
+msgstr ""
+
+#: kids_network.htm:587
+msgid "Recent configuration events"
+msgstr ""
+
+#: kids_network.htm:599
+msgid "Clear Log"
+msgstr ""
+
+#: kids_network.htm:604
+msgid "Grant 1h Extension"
+msgstr ""
+
+#: kids_network.htm:605
+msgid "Save &amp; Apply All"
+msgstr ""
+
+#: kids_network.htm:606
+msgid "Revert"
+msgstr ""
+
+#: kids_network.htm:609
+msgid "Remove Kids Network"
+msgstr ""
+
+#: kids_network.htm:616
+msgid "Configuration saved."
+msgstr ""
+
+#: wizard.htm:58
+msgid "Parental Privacy Wizard"
+msgstr ""
+
+#: wizard.htm:66
+msgid "Go to dashboard instead"
+msgstr ""
+
+#: wizard.htm:70
+msgid "1. Primary DNS"
+msgstr ""
+
+#: wizard.htm:71
+msgid "2. Kids WiFi"
+msgstr ""
+
+#: wizard.htm:72
+msgid "3. Hardware Button"
+msgstr ""
+
+#: wizard.htm:77
+msgid "Secure Your Main Network"
+msgstr ""
+
+#: wizard.htm:85
+msgid "ISP Default"
+msgstr ""
+
+#: wizard.htm:86
+msgid "Uses your internet provider's DNS. May satisfy 12-month data retention mandates."
+msgstr ""
+
+#: wizard.htm:89
+msgid "Quad9 — Malware Shield"
+msgstr ""
+
+#: wizard.htm:90
+msgid "Blocks known malware and phishing. No logging. Non-profit, Switzerland-based."
+msgstr ""
+
+#: wizard.htm:93
+msgid "Cloudflare — Privacy and Malware Protection"
+msgstr ""
+
+#: wizard.htm:94
+msgid "Fastest public DNS resolver. Privacy-focused, protection from malware, minimal data retention."
+msgstr ""
+
+#: wizard.htm:97
+msgid "Cloudflare — Privacy"
+msgstr ""
+
+#: wizard.htm:98
+msgid "Fastest public DNS resolver. Privacy-focused, minimal data retention."
+msgstr ""
+
+#: wizard.htm:101
+msgid "AdGuard DNS — Ad Blocking"
+msgstr ""
+
+#: wizard.htm:102
+msgid "Blocks ads and trackers for every device on your network. No setup required."
+msgstr ""
+
+#: wizard.htm:106
+msgid "Next: Kids WiFi"
+msgstr ""
+
+#: wizard.htm:112
+msgid "Kids WiFi Fortress"
+msgstr ""
+
+#: wizard.htm:121
+msgid "Network Name (SSID)"
+msgstr ""
+
+#: wizard.htm:124
+msgid "Please enter a network name."
+msgstr ""
+
+#: wizard.htm:127
+msgid "Password (min. 8 characters)"
+msgstr ""
+
+#: wizard.htm:130
+msgid "Password must be at least 8 characters."
+msgstr ""
+
+#: wizard.htm:134
+msgid "Choose Family DNS"
+msgstr ""
+
+#: wizard.htm:136
+msgid "Cloudflare for Families"
+msgstr ""
+
+#: wizard.htm:137
+msgid "Blocks malware and adult content. No account needed."
+msgstr ""
+
+#: wizard.htm:141
+msgid "Strict family filter — blocks adult content, proxies, and VPN sites."
+msgstr ""
+
+#: wizard.htm:144
+msgid "OpenDNS FamilyShield"
+msgstr ""
+
+#: wizard.htm:145
+msgid "Cisco-backed. Blocks adult content automatically, no account required."
+msgstr ""
+
+#: wizard.htm:153
+msgid "Force SafeSearch"
+msgstr ""
+
+#: wizard.htm:154
+msgid "Enforces safe results on Google, Bing, and YouTube Restricted Mode at DNS level — no device cooperation needed."
+msgstr ""
+
+#: wizard.htm:160
+msgid "Block DNS-over-HTTPS bypass"
+msgstr ""
+
+#: wizard.htm:161
+msgid "Prevents browsers silently bypassing the DNS filter using encrypted DNS. Recommended."
+msgstr ""
+
+#: wizard.htm:167
+msgid "Back"
+msgstr ""
+
+#: wizard.htm:168
+msgid "Next: Hardware Button"
+msgstr ""
+
+#: wizard.htm:174
+msgid "Hardware Kill-Switch (Optional)"
+msgstr ""
+
+#: wizard.htm:183
+msgid "Enable hardware button toggle"
+msgstr ""
+
+#: wizard.htm:197
+msgid "Apply Configuration"
+msgstr ""
+
+#: wizard.htm:299
+msgid "All settings applied successfully! Taking you to the dashboard…"
+msgstr ""
+
+#: wizard.htm:316
+msgid "Unknown error"
+msgstr ""
