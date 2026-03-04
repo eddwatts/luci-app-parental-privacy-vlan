@@ -13,15 +13,21 @@
 
 # ── Helper: set all kids bands to the same state ─────────────────────────────
 set_kids_wifi() {
-    STATE="$1"
-    uci set wireless.kids_wifi.disabled="$STATE"
-    uci -q get wireless.kids_wifi_5g >/dev/null 2>&1 && \
-        uci set wireless.kids_wifi_5g.disabled="$STATE"
-    uci -q get wireless.kids_wifi_6g >/dev/null 2>&1 && \
-        uci set wireless.kids_wifi_6g.disabled="$STATE"
-    uci commit wireless
-    wifi reload
-    logger -t parental-privacy "Kids WiFi $([ "$STATE" = "0" ] && echo enabled || echo disabled) via button ($BUTTON/$ACTION)"
+    STATE="$1"  # 0 for ON (enabled), 1 for OFF (disabled)
+    
+    if [ "$STATE" = "0" ]; then
+        # Bring the interface UP
+        uci set wireless.kids_wifi.disabled="0"
+        uci commit wireless
+        ubus call network.interface.kids up
+    else
+        # Bring the interface DOWN
+        uci set wireless.kids_wifi.disabled="1"
+        uci commit wireless
+        ubus call network.interface.kids down
+    fi
+    
+    logger -t parental-privacy "Kids WiFi $([ "$STATE" = "0" ] && echo enabled || echo disabled) via ubus"
 }
 
 # ── Read enabled flags and configured GPIO pin ────────────────────────────────
