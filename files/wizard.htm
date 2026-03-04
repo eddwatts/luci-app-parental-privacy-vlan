@@ -63,13 +63,13 @@
     ⚠ Kids network already configured (SSID: <strong id="pp-existing-ssid"></strong>).
     Completing this wizard will overwrite your existing settings.
     <a href="<%=luci.dispatcher.build_url('admin','network','parental_privacy','kids')%>"
-       style="margin-left:8px">Go to dashboard instead →</a>
+       style="margin-left:8px"><%:Go to dashboard instead%> →</a>
   </div>
 
   <div class="pp-steps-bar">
-    <div class="pp-tab active" id="tab1">1. Primary DNS</div>
-    <div class="pp-tab" id="tab2">2. Kids WiFi</div>
-    <div class="pp-tab" id="tab3">3. Hardware Button</div>
+    <div class="pp-tab active" id="tab1"><%:1. Primary DNS%></div>
+    <div class="pp-tab" id="tab2"><%:2. Kids WiFi%></div>
+    <div class="pp-tab" id="tab3"><%:3. Hardware Button%></div>
   </div>
 
   <!-- STEP 1 -->
@@ -121,13 +121,13 @@
         <label><%:Network Name (SSID)%></label><br>
         <input type="text" id="kids_ssid" value="_Kids_WiFi" style="width:100%"
                oninput="clearError('ssid-error')">
-        <div class="field-error" id="ssid-error">Please enter a network name.</div>
+        <div class="field-error" id="ssid-error"><%:Please enter a network name.%></div>
       </div>
       <div>
         <label><%:Password (min. 8 characters)%></label><br>
         <input type="password" id="kids_pwd" value="" placeholder="min. 8 chars" style="width:100%"
                oninput="clearError('pwd-error')">
-        <div class="field-error" id="pwd-error">Password must be at least 8 characters.</div>
+        <div class="field-error" id="pwd-error"><%:Password must be at least 8 characters.%></div>
       </div>
     </div>
 
