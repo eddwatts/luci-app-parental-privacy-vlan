@@ -82,11 +82,7 @@ www.youtube-nocookie.com
 "
 
 # ── DuckDuckGo ───────────────────────────────────────────────────────────────
-# DuckDuckGo doesn't have a dedicated SafeSearch IP, but adding &kp=1 to
-# queries via a redirect is not possible at DNS level. Best option is to
-# block DuckDuckGo entirely so kids use a filtered engine instead.
-# Set BLOCK_DUCKDUCKGO=1 to enable, 0 to leave DuckDuckGo accessible.
-BLOCK_DUCKDUCKGO=1
+DUCKDUCKGO_SAFE_HOST="safe.duckduckgo.com"
 DUCKDUCKGO_DOMAINS="
 duckduckgo.com
 www.duckduckgo.com
@@ -120,15 +116,12 @@ EOF
     done
     echo "" >> "$DNSMASQ_CONF"
 
-    # DuckDuckGo — block by pointing at 0.0.0.0
-    if [ "$BLOCK_DUCKDUCKGO" = "1" ]; then
-        echo "# DuckDuckGo blocked (no SafeSearch enforcement IP available)" >> "$DNSMASQ_CONF"
-        for domain in $DUCKDUCKGO_DOMAINS; do
-            echo "address=/${domain}/0.0.0.0" >> "$DNSMASQ_CONF"
-            echo "address=/${domain}/::" >> "$DNSMASQ_CONF"
-        done
-        echo "" >> "$DNSMASQ_CONF"
-    fi
+    # DuckDuckGo
+    echo "# DuckDuckGo Restricted Mode" >> "$DNSMASQ_CONF"
+    for domain in $DUCKDUCKGO_DOMAINS; do
+        echo "cname=${domain},${DUCKDUCKGO_SAFE_HOST}" >> "$DNSMASQ_CONF"
+    done
+    echo "" >> "$DNSMASQ_CONF"
 }
 
 enable_safesearch() {
