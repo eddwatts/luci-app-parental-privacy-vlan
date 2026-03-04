@@ -1,0 +1,254 @@
+<%+header%>
+<style>
+  .pp-wizard { max-width: 720px; margin: 0 auto; }
+  .pp-step { display:none; }
+  .pp-step.active { display:block; }
+  .pp-card {
+    border: 1px solid #ddd; border-radius:6px;
+    padding:14px 16px; margin:8px 0; cursor:pointer;
+    transition: border-color .2s, background .2s;
+  }
+  .pp-card:hover, .pp-card.selected { border-color:#0086c9; background:#f0f8ff; }
+  .pp-card h4 { margin:0 0 4px; }
+  .pp-card small { color:#666; }
+  .pp-info {
+    background:#eff6ff; border-left:3px solid #0086c9;
+    padding:10px 14px; border-radius:4px; margin:12px 0;
+    font-size:.9em;
+  }
+  .pp-steps-bar {
+    display:flex; margin-bottom:20px; border-bottom:2px solid #eee;
+  }
+  .pp-tab {
+    padding:10px 18px; cursor:pointer; color:#888;
+    border-bottom:2px solid transparent; margin-bottom:-2px;
+  }
+  .pp-tab.active { color:#0086c9; border-bottom-color:#0086c9; font-weight:600; }
+  .pp-tab.done { color:#2d9e2d; }
+  .field-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  @media(max-width:500px){ .field-row{grid-template-columns:1fr;} }
+  
+.pp-steps-bar {
+  display: flex;
+  overflow-x: auto; /* Allow swiping through steps on mobile */
+  white-space: nowrap;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.pp-steps-bar::-webkit-scrollbar { display: none; }
+
+.pp-tab {
+  flex: 1 0 auto; /* Don't shrink the tabs */
+  text-align: center;
+}
+  input[type=text], input[type=password], input[type=number], select {
+  font-size: 16px; /* Prevents iOS auto-zoom */
+  padding: .75rem .9rem; /* Larger touch area */
+}
+</style>
+
+<h2 class="section-title"><%:Parental Privacy Wizard%></h2>
+
+<div class="pp-wizard">
+  <div class="pp-steps-bar">
+    <div class="pp-tab active" id="tab1">1. Primary DNS</div>
+    <div class="pp-tab" id="tab2">2. Kids WiFi</div>
+    <div class="pp-tab" id="tab3">3. Hardware Button</div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="pp-step active" id="step1">
+    <h3><%:Secure Your Main Network%></h3>
+    <div class="pp-info">
+      <%:Every time a device visits a website it asks a DNS server for directions.
+         Choosing a protective DNS like Quad9 blocks known malware and scam sites
+         before they load — with zero performance overhead.%>
+    </div>
+
+    <div class="pp-card selected" onclick="pickDNS(this,'isp')">
+      <h4><%:ISP Default%></h4>
+      <small><%:Uses your internet provider's DNS. May satisfy 12-month data retention mandates.%></small>
+    </div>
+    <div class="pp-card" onclick="pickDNS(this,'9.9.9.9')">
+      <h4><%:Quad9 — Malware Shield%> <code>9.9.9.9</code></h4>
+      <small><%:Blocks known malware and phishing. No logging. Non-profit, Switzerland-based.%></small>
+    </div>
+	<div class="pp-card" onclick="pickDNS(this,'1.1.1.2')">
+      <h4><%:Cloudflare — Privacy and Malware Protection%> <code>1.1.1.2</code></h4>
+      <small><%:Fastest public DNS resolver. Privacy-focused, Protection from Malware, minimal data retention.%></small>
+    </div>
+    <div class="pp-card" onclick="pickDNS(this,'1.1.1.1')">
+      <h4><%:Cloudflare — Privacy%> <code>1.1.1.1</code></h4>
+      <small><%:Fastest public DNS resolver. Privacy-focused, minimal data retention.%></small>
+    </div>
+    <div class="pp-card" onclick="pickDNS(this,'94.140.14.14')">
+      <h4><%:AdGuard DNS — Ad Blocking%> <code>94.140.14.14</code></h4>
+      <small><%:Blocks ads and trackers for every device on your network. No setup required.%></small>
+    </div>
+
+    <div style="margin-top:16px;text-align:right">
+      <button class="cbi-button cbi-button-action" onclick="goStep(2)"><%:Next: Kids WiFi%> →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="pp-step" id="step2">
+    <h3><%:Kids WiFi Fortress%></h3>
+    <div class="pp-info">
+      <%:This creates a separate WiFi on its own subnet. DHCP Option 6 forces
+         every connected device to use a family-safe DNS — and a firewall rule
+         blocks any attempt to bypass it. No accounts or ID checks ever required.%>
+    </div>
+
+    <div class="field-row">
+      <div>
+        <label><%:Network Name (SSID)%></label><br>
+        <input type="text" id="kids_ssid" value="_Kids_WiFi" style="width:100%">
+      </div>
+      <div>
+        <label><%:Password (min. 8 characters)%></label><br>
+        <input type="password" id="kids_pwd" value="" placeholder="min. 8 chars" style="width:100%">
+      </div>
+    </div>
+
+    <h4 style="margin-top:16px"><%:Choose Family DNS%></h4>
+    <div class="pp-card selected" onclick="pickKidsDNS(this,'1.1.1.3')">
+      <h4><%:Cloudflare for Families%> <code>1.1.1.3</code></h4>
+      <small><%:Blocks malware and adult content. No account needed.%></small>
+    </div>
+    <div class="pp-card" onclick="pickKidsDNS(this,'185.228.168.9')">
+      <h4><%:CleanBrowsing%> <code>185.228.168.9</code></h4>
+      <small><%:Strict family filter — blocks adult content, proxies, and VPN sites.%></small>
+    </div>
+    <div class="pp-card" onclick="pickKidsDNS(this,'208.67.222.123')">
+      <h4><%:OpenDNS FamilyShield%> <code>208.67.222.123</code></h4>
+      <small><%:Cisco-backed. Blocks adult content automatically, no account required.%></small>
+    </div>
+
+    <div style="margin-top:16px;text-align:right;display:flex;gap:8px;justify-content:flex-end">
+      <button class="cbi-button" onclick="goStep(1)">← <%:Back%></button>
+      <button class="cbi-button cbi-button-action" onclick="goStep(3)"><%:Next: Hardware Button%> →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="pp-step" id="step3">
+    <h3><%:Hardware Kill-Switch (Optional)%></h3>
+    <div class="pp-info">
+      <%:Assign a physical button on your router (e.g. the WPS button) to instantly
+         toggle the Kids WiFi on or off. The wizard writes a hotplug script —
+         no reboot needed, takes effect immediately on press.%>
+    </div>
+
+    <label>
+      <input type="checkbox" id="gpio_enable" checked onchange="toggleGPIO(this)">
+      <%:Enable hardware button toggle%>
+    </label>
+
+    <div id="gpio_fields" style="margin-top:12px">
+      <label><%:GPIO Pin / Button ID%></label><br>
+      <input type="number" id="gpio_pin" value="0" min="0" max="255"
+             style="width:120px">
+      <p><small><%:Common values: 0 = WPS button, 11 = Reset. Check your router's hardware
+                   page on the OpenWrt wiki for the correct pin number.%></small></p>
+    </div>
+
+    <div style="margin-top:20px;text-align:right;display:flex;gap:8px;justify-content:flex-end">
+      <button class="cbi-button" onclick="goStep(2)">← <%:Back%></button>
+      <button class="cbi-button cbi-button-action" id="apply-btn" onclick="applyAll()">
+        ✔ <%:Apply Configuration%>
+      </button>
+    </div>
+  </div>
+
+  <!-- Result area -->
+  <div id="pp-result" style="display:none;margin-top:16px" class="pp-info"></div>
+</div>
+
+<script>
+var primaryDNS = 'isp';
+var kidsDNS    = '1.1.1.3';
+
+function goStep(n) {
+  [1,2,3].forEach(function(i){
+    document.getElementById('step'+i).classList.remove('active');
+    var t = document.getElementById('tab'+i);
+    t.classList.remove('active');
+    if(i < n) t.classList.add('done'); else t.classList.remove('done');
+  });
+  document.getElementById('step'+n).classList.add('active');
+  document.getElementById('tab'+n).classList.add('active');
+}
+
+function pickDNS(el, val) {
+  document.querySelectorAll('#step1 .pp-card').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected');
+  primaryDNS = val;
+}
+
+function pickKidsDNS(el, val) {
+  document.querySelectorAll('#step2 .pp-card').forEach(function(c){ c.classList.remove('selected'); });
+  el.classList.add('selected');
+  kidsDNS = val;
+}
+
+function toggleGPIO(cb) {
+  document.getElementById('gpio_fields').style.display = cb.checked ? 'block' : 'none';
+}
+
+function applyAll() {
+  var btn = document.getElementById('apply-btn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Applying…';
+
+  var stages = [
+    { stage: 'primary', dns: primaryDNS },
+    {
+      stage:    'kids',
+      ssid:     document.getElementById('kids_ssid').value,
+      password: document.getElementById('kids_pwd').value,
+      dns:      kidsDNS
+    }
+  ];
+
+  var gpioEnabled = document.getElementById('gpio_enable').checked;
+  if (gpioEnabled) {
+    stages.push({
+      stage:    'gpio',
+      gpio_pin: document.getElementById('gpio_pin').value
+    });
+  }
+
+  var idx = 0;
+  function next() {
+    if (idx >= stages.length) {
+      showResult(true, '<%:All settings applied successfully! dnsmasq and firewall have been reloaded.%>');
+      btn.disabled = false;
+      btn.textContent = '✔ <%:Apply Configuration%>';
+      return;
+    }
+    fetch('<%=luci.dispatcher.build_url("admin","network","parental_privacy","apply")%>', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(stages[idx++])
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.success) { next(); }
+      else { showResult(false, d.error || '<%:Unknown error%>'); btn.disabled=false; }
+    })
+    .catch(function(e){ showResult(false, e.toString()); btn.disabled=false; });
+  }
+  next();
+}
+
+function showResult(ok, msg) {
+  var el = document.getElementById('pp-result');
+  el.style.display = 'block';
+  el.style.borderLeftColor = ok ? '#2d9e2d' : '#c0392b';
+  el.style.background      = ok ? '#f0fff0' : '#fff0f0';
+  el.textContent = (ok ? '✔ ' : '✖ ') + msg;
+}
+</script>
+
+<%+footer%>

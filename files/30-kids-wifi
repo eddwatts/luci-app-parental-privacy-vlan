@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# This handles the GL.iNet Slider (BTN_0) and standard WPS buttons (wps/reset)
+if [ "$BUTTON" = "BTN_0" ] || [ "$BUTTON" = "wps" ]; then
+    # For a slider: 'pressed' is one side, 'released' is the other
+    # For a button: 'pressed' is a single click toggle
+    
+    CURRENT_STATE=$(uci get wireless.kids_wifi.disabled)
+    
+    if [ "$ACTION" = "pressed" ]; then
+        if [ "$BUTTON" = "BTN_0" ] || [ "$CURRENT_STATE" = "1" ]; then
+            STATE='0'
+        else
+            STATE='1'
+        fi
+        uci set wireless.kids_wifi.disabled="$STATE"
+        [ -z "$(uci get wireless.kids_wifi_5g 2>/dev/null)" ]  || uci set wireless.kids_wifi_5g.disabled="$STATE"
+        [ -z "$(uci get wireless.kids_wifi_6g 2>/dev/null)" ]  || uci set wireless.kids_wifi_6g.disabled="$STATE"
+    fi
+    
+    uci commit wireless
+    wifi reload
+fi

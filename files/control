@@ -1,0 +1,6 @@
+Package: luci-app-parental-privacy
+Version: 1.0.0
+Depends: libc, luci-base, tc-full, kmod-sched-core, nftables
+Architecture: all
+Maintainer: Edward Watts
+Description: A one-click Parental Privacy Wizard for OpenWrt.

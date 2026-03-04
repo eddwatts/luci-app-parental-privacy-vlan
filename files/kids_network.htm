@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kids Network - Parental Privacy</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0e1a;--surface:#111827;--surface2:#1a2236;
+  --border:#1f2d45;--border2:#2a3f5f;
+  --accent:#4f9cf9;--accent2:#7eb8ff;
+  --green:#34d399;--green-dim:#065f46;
+  --orange:#fb923c;--red:#f87171;--purple:#a78bfa;--yellow:#fbbf24;
+  --text:#e2e8f0;--muted:#64748b;--muted2:#94a3b8;
+  --mono:'JetBrains Mono','Cascadia Code','Fira Mono','Consolas','Liberation Mono',monospace;
+  --sans:'Outfit','Inter','Segoe UI','Helvetica Neue',Arial,sans-serif;--radius:10px;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15px;line-height:1.6;min-height:100vh;}
+.luci-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:.6rem 1.5rem;display:flex;align-items:center;gap:1rem;font-family:var(--mono);font-size:.75rem;color:var(--muted);}
+.luci-bar .brand{color:var(--accent);font-weight:600;font-size:.9rem;letter-spacing:.5px;}
+.luci-bar .sep{color:var(--border2);}
+.luci-bar .crumb-active{color:var(--text);}
+.page{max-width:1100px;margin:0 auto;padding:1.5rem 1.25rem 3rem;}
+.page-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:2rem;flex-wrap:wrap;}
+.page-title h1{font-size:1.5rem;font-weight:600;}
+.page-title p{color:var(--muted2);font-size:.88rem;margin-top:.2rem;}
+.master-toggle{display:flex;align-items:center;gap:.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:40px;padding:.5rem 1rem .5rem .6rem;cursor:pointer;user-select:none;transition:border-color .2s;}
+.master-toggle:hover{border-color:var(--accent);}
+.pill-switch{width:52px;height:28px;border-radius:14px;background:var(--border2);position:relative;transition:background .25s;flex-shrink:0;cursor:pointer;}
+.pill-switch.on{background:var(--green);}
+.pill-switch::after{content:'';position:absolute;top:4px;left:4px;width:20px;height:20px;background:white;border-radius:50%;transition:transform .25s;box-shadow:0 1px 4px rgba(0,0,0,.4);}
+.pill-switch.on::after{transform:translateX(24px);}
+.status-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.5rem;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.1rem;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
+.stat-card.green::before{background:var(--green);}
+.stat-card.blue::before{background:var(--accent);}
+.stat-card.orange::before{background:var(--orange);}
+.stat-card.purple::before{background:var(--purple);}
+.stat-val{font-size:1.6rem;font-weight:600;font-family:var(--mono);}
+.stat-val.c-green{color:var(--green);}
+.stat-val.c-blue{color:var(--accent);}
+.stat-val.c-orange{color:var(--orange);}
+.stat-val.c-purple{color:var(--purple);}
+.stat-key{font-size:.75rem;color:var(--muted2);margin-top:.15rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:.5px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;}
+.panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:1rem;}
+.panel-header{padding:.9rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.6rem;cursor:pointer;user-select:none;}
+.panel-header:hover{background:rgba(255,255,255,.02);}
+.panel-icon{font-size:1rem;}
+.panel-title{font-weight:600;font-size:.95rem;}
+.panel-subtitle{font-size:.78rem;color:var(--muted2);margin-left:auto;margin-right:.5rem;}
+.panel-chevron{color:var(--muted);font-size:.7rem;transition:transform .2s;}
+.panel-chevron.open{transform:rotate(180deg);}
+.panel-body{padding:1.25rem;}
+.panel-body.hidden{display:none;}
+.field{margin-bottom:1.1rem;}
+.field:last-child{margin-bottom:0;}
+label,.field-label{display:block;font-size:.8rem;color:var(--muted2);margin-bottom:.4rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:.4px;}
+input[type=text],input[type=password],input[type=number],select{width:100%;padding:.6rem .9rem;background:var(--bg);border:1px solid var(--border2);border-radius:7px;color:var(--text);font-family:var(--mono);font-size:.88rem;transition:border-color .2s,box-shadow .2s;outline:none;}
+input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,156,249,.12);}
+select option{background:var(--surface2);}
+.hint{font-size:.75rem;color:var(--muted);margin-top:.35rem;}
+.dns-options{display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;}
+.dns-opt{border:2px solid var(--border);border-radius:8px;padding:.8rem .9rem;cursor:pointer;transition:border-color .15s,background .15s;position:relative;}
+.dns-opt:hover{border-color:var(--border2);background:rgba(255,255,255,.02);}
+.dns-opt.selected{border-color:var(--accent);background:rgba(79,156,249,.07);}
+.dns-opt input{position:absolute;opacity:0;width:0;height:0;}
+.dns-opt-name{font-weight:600;font-size:.85rem;}
+.dns-opt-ip{font-family:var(--mono);font-size:.72rem;color:var(--accent);margin:.15rem 0;}
+.dns-opt-desc{font-size:.72rem;color:var(--muted2);line-height:1.4;}
+.dns-badge{display:inline-block;font-size:.6rem;font-family:var(--mono);padding:.1rem .4rem;border-radius:3px;margin-bottom:.3rem;text-transform:uppercase;letter-spacing:.3px;}
+.badge-family{background:rgba(52,211,153,.12);color:var(--green);border:1px solid rgba(52,211,153,.3);}
+.badge-malware{background:rgba(79,156,249,.12);color:var(--accent);border:1px solid rgba(79,156,249,.3);}
+.badge-strict{background:rgba(251,146,60,.12);color:var(--orange);border:1px solid rgba(251,146,60,.3);}
+.badge-custom{background:rgba(167,139,250,.12);color:var(--purple);border:1px solid rgba(167,139,250,.3);}
+.radio-row{display:flex;gap:.75rem;}
+.radio-card{flex:1;border:2px solid var(--border);border-radius:8px;padding:.85rem 1rem;cursor:pointer;transition:border-color .15s,background .15s;text-align:center;}
+.radio-card:hover{border-color:var(--border2);}
+.radio-card.selected{border-color:var(--accent);background:rgba(79,156,249,.06);}
+.radio-card input{display:none;}
+.radio-name{font-weight:600;font-size:.9rem;}
+.radio-freq{font-family:var(--mono);font-size:.75rem;color:var(--accent);margin:.2rem 0;}
+.radio-desc{font-size:.72rem;color:var(--muted2);}
+.schedule-grid{display:grid;grid-template-columns:52px repeat(24,1fr);gap:2px;font-size:.62rem;font-family:var(--mono);overflow-x:auto;margin-bottom:.5rem;}
+.sg-label{color:var(--muted2);display:flex;align-items:center;height:26px;white-space:nowrap;}
+.sg-hour-label{text-align:center;color:var(--muted);height:16px;display:flex;align-items:center;justify-content:center;font-size:.58rem;}
+.sg-cell{height:26px;border-radius:3px;background:var(--border);cursor:pointer;transition:background .1s;border:1px solid transparent;}
+.sg-cell.blocked{background:rgba(248,113,113,.22);border-color:rgba(248,113,113,.35);}
+.sg-cell.allowed{background:rgba(52,211,153,.22);border-color:rgba(52,211,153,.35);}
+.sg-cell:hover{opacity:.7;}
+.schedule-legend{display:flex;gap:1.2rem;font-size:.75rem;color:var(--muted2);margin-top:.5rem;}
+.legend-dot{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:.3rem;}
+.legend-dot.allowed{background:rgba(52,211,153,.5);}
+.legend-dot.blocked{background:rgba(248,113,113,.5);}
+.device-list{display:flex;flex-direction:column;gap:.5rem;}
+.device-row{display:flex;align-items:center;gap:.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.7rem 1rem;}
+.device-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.device-dot.online{background:var(--green);box-shadow:0 0 6px var(--green);}
+.device-dot.offline{background:var(--muted);}
+.device-name{font-weight:500;font-size:.88rem;}
+.device-mac{font-family:var(--mono);font-size:.72rem;color:var(--muted2);}
+.device-ip{font-family:var(--mono);font-size:.72rem;color:var(--accent);margin-left:auto;}
+.device-time{font-size:.72rem;color:var(--muted2);white-space:nowrap;}
+.device-block{padding:.25rem .6rem;font-size:.72rem;font-family:var(--mono);border-radius:4px;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--muted2);transition:all .15s;}
+.device-block:hover{border-color:var(--red);color:var(--red);background:rgba(248,113,113,.07);}
+.device-block.blocked{border-color:var(--red);color:var(--red);background:rgba(248,113,113,.1);}
+.gpio-row{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.85rem 1.1rem;gap:1rem;}
+.gpio-icon{font-size:1.5rem;}
+.gpio-info{flex:1;}
+.gpio-info strong{font-size:.9rem;}
+.gpio-info p{font-size:.78rem;color:var(--muted2);margin-top:.15rem;}
+.gpio-pin-input{width:100px!important;}
+.log-box{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:.75rem 1rem;font-family:var(--mono);font-size:.75rem;color:var(--muted2);line-height:1.7;max-height:140px;overflow-y:auto;}
+.log-box .log-ok{color:var(--green);}
+.log-box .log-warn{color:var(--orange);}
+.log-box .log-error{color:var(--red);}
+.log-box .log-ts{color:var(--muted);margin-right:.5rem;}
+.btn-row{display:flex;gap:.75rem;margin-top:1.5rem;flex-wrap:wrap;}
+.btn{padding:.6rem 1.4rem;border-radius:7px;font-size:.88rem;font-family:var(--sans);font-weight:600;cursor:pointer;border:none;transition:opacity .15s,transform .1s,box-shadow .15s;display:inline-flex;align-items:center;gap:.4rem;}
+.btn:active{transform:scale(.97);}
+.btn-primary{background:var(--accent);color:#000;}
+.btn-primary:hover{box-shadow:0 0 0 3px rgba(79,156,249,.25);}
+.btn-success{background:var(--green);color:#000;}
+.btn-success:hover{box-shadow:0 0 0 3px rgba(52,211,153,.25);}
+.btn-ghost{background:transparent;border:1px solid var(--border2);color:var(--text);}
+.btn-ghost:hover{border-color:var(--muted2);background:rgba(255,255,255,.04);}
+.btn-danger{background:transparent;border:1px solid var(--red);color:var(--red);}
+.btn-danger:hover{background:rgba(248,113,113,.08);}
+.btn[disabled]{opacity:.4;cursor:not-allowed;}
+.btn-sm{padding:.4rem .9rem;font-size:.8rem;}
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--surface2);border:1px solid var(--border2);border-radius:10px;padding:.8rem 1.2rem;display:flex;align-items:center;gap:.75rem;box-shadow:0 8px 32px rgba(0,0,0,.4);transform:translateY(80px);opacity:0;transition:all .35s cubic-bezier(.175,.885,.32,1.275);z-index:999;font-size:.88rem;max-width:320px;}
+.toast.show{transform:none;opacity:1;}
+.toast.ok{border-color:rgba(52,211,153,.4);}
+.toast.err{border-color:rgba(248,113,113,.4);}
+.unsaved-badge{display:inline-flex;align-items:center;gap:.3rem;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.3);color:var(--yellow);border-radius:4px;padding:.15rem .5rem;font-size:.72rem;font-family:var(--mono);}
+.inline-toggle{display:flex;align-items:center;justify-content:space-between;gap:1rem;}
+.inline-toggle .tinfo strong{display:block;font-size:.9rem;}
+.inline-toggle .tinfo span{font-size:.78rem;color:var(--muted2);}
+.mini-switch{width:38px;height:22px;border-radius:11px;background:var(--border2);position:relative;transition:background .25s;flex-shrink:0;cursor:pointer;}
+.mini-switch.on{background:var(--green);}
+.mini-switch::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;background:white;border-radius:50%;transition:transform .25s;}
+.mini-switch.on::after{transform:translateX(16px);}
+hr.divider{border:none;border-top:1px solid var(--border);margin:1.1rem 0;}
+@media(max-width:768px){
+  .status-bar{grid-template-columns:1fr 1fr;}
+  .grid-2{grid-template-columns:1fr;}
+  .dns-options{grid-template-columns:1fr 1fr;}
+  .radio-row{flex-direction:column;}
+}
+.status-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Better wrapping */
+  gap: .75rem;
+  margin-bottom: 1.5rem;
+}
+@media(max-width:480px){
+  .dns-options{grid-template-columns:1fr  !important;;}
+  .stat-val {font-size: 1.2rem;}
+  .radio-row {grid-template-columns: 1fr;}  
+}
+.schedule-grid {
+  display: grid;
+  grid-template-columns: 52px repeat(24, 1fr);
+  gap: 2px;
+  min-width: 600px; /* Force a minimum width to ensure cells are tappable */
+}
+
+/* Add a wrapper or ensure the body handles the scroll */
+#body-schedule {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; 
+}
+@media(max-width: 600px) {
+  .device-row {
+    flex-wrap: wrap; /* Let the button drop to a new line if needed */
+  }
+  .device-ip {
+    margin-left: 0; 
+    width: 100%; /* Give IP its own line on tiny screens */
+  }
+}
+@media(max-width: 900px) {
+  .radio-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* 2x2 grid on medium screens */
+  }
+}
+</style>
+</head>
+<body>
+
+<div class="luci-bar">
+  <span class="brand">OpenWrt</span>
+  <span class="sep">/</span><span>Network</span>
+  <span class="sep">/</span>
+  <span class="crumb-active">Kids Network</span>
+  <span style="margin-left:auto">
+    <span id="unsaved-badge" class="unsaved-badge" style="display:none">&#9679; unsaved changes</span>
+  </span>
+</div>
+
+<div class="page">
+  <div class="page-header">
+    <div class="page-title">
+      <h1>&#129358; Kids Network</h1>
+      <p>All settings for your isolated children&apos;s WiFi &mdash; managed in one place.</p>
+    </div>
+    <div class="master-toggle" onclick="toggleMaster()">
+      <div class="pill-switch on" id="master-switch"></div>
+      <span style="font-size:.88rem;font-weight:500" id="master-label">Kids WiFi Active</span>
+    </div>
+  </div>
+
+  <div class="status-bar">
+    <div class="stat-card green">
+      <div class="stat-val c-green" id="stat-devices">3</div>
+      <div class="stat-key">Devices Online</div>
+    </div>
+    <div class="stat-card blue">
+      <div class="stat-val c-blue" id="stat-ssid" style="font-size:1.1rem;margin-top:.15rem">_Kids_WiFi</div>
+      <div class="stat-key">Active SSID</div>
+    </div>
+    <div class="stat-card orange">
+      <div class="stat-val c-orange" id="stat-dns" style="font-size:1rem;margin-top:.15rem">1.1.1.3</div>
+      <div class="stat-key">DNS Resolver</div>
+    </div>
+    <div class="stat-card purple">
+      <div class="stat-val c-purple" id="stat-schedule" style="font-size:1rem;margin-top:.15rem">ON until 21:00</div>
+      <div class="stat-key">Schedule</div>
+    </div>
+  </div>
+
+  <!-- PANEL: WiFi Settings -->
+  <div class="panel">
+    <div class="panel-header" onclick="togglePanel('wifi')">
+      <span class="panel-icon">&#128225;</span>
+      <span class="panel-title">WiFi Settings</span>
+      <span class="panel-subtitle">SSID, password, band</span>
+      <span class="panel-chevron open" id="chevron-wifi">&#9660;</span>
+    </div>
+    <div class="panel-body" id="body-wifi">
+      <div class="grid-2">
+        <div class="field">
+          <label>SSID &mdash; Network Name</label>
+          <input type="text" id="wifi-ssid" value="_Kids_WiFi" oninput="markUnsaved()">
+          <p class="hint">
+            <a href="#" onclick="useSuggestedSSID(); return false;" id="ssid-suggest-link" style="color:var(--accent); text-decoration:none;">
+              &#8634; Use suggested name: <span id="ssid-suggestion-text">...</span>
+            </a>
+          </p>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="wifi-pwd" value="SafeFamily2024!" oninput="markUnsaved()" placeholder="min. 8 characters">
+          <p class="hint">Minimum 8 characters for WPA2-PSK encryption.</p>
+        </div>
+      </div>
+      <hr class="divider">
+      <div class="field-label" style="margin-bottom:.6rem">Frequency Band</div>
+      <div class="radio-row">
+        <div class="radio-card selected" onclick="pickRadio(this,'radio0')">
+          <input type="radio" name="radio" value="radio0" checked>
+          <div class="radio-name">2.4 GHz</div>
+          <div class="radio-freq">radio0</div>
+          <div class="radio-desc">Better range through walls. Ideal for whole-home coverage.</div>
+        </div>
+        <div class="radio-card" onclick="pickRadio(this,'radio1')">
+          <input type="radio" name="radio" value="radio1">
+          <div class="radio-name">5 GHz</div>
+          <div class="radio-freq">radio1</div>
+          <div class="radio-desc">Faster speeds, shorter range. Good for nearby devices.</div>
+        </div>
+		<div class="radio-card" onclick="pickRadio(this,'radio2')">
+			<input type="radio" name="radio" value="radio2">
+			<div class="radio-name">6 GHz</div>
+			<div class="radio-freq">radio2</div>
+			<div class="radio-desc">Ultra-fast Wi-Fi 6E/7. Requires WPA3 support.</div>
+		</div>
+  <div class="radio-card" onclick="pickRadio(this,'both')">
+          <input type="radio" name="radio" value="both">
+          <div class="radio-name">All Bands</div>
+          <div class="radio-freq">Sync All</div>
+          <div class="radio-desc">Unified SSID across all available radios.</div>
+        </div>
+      </div>
+      <hr class="divider">
+      <div class="inline-toggle" style="margin-bottom:.85rem">
+        <div class="tinfo">
+          <strong>Isolate clients from each other</strong>
+          <span>Prevents devices on this network from talking to each other</span>
+        </div>
+        <div class="mini-switch on" id="sw-isolate" onclick="this.classList.toggle('on');markUnsaved()"></div>
+      </div>
+      <div class="inline-toggle">
+        <div class="tinfo">
+          <strong>Block access to home LAN</strong>
+          <span>Kids&apos; devices cannot reach printers, NAS, or home devices &mdash; internet only</span>
+        </div>
+        <div class="mini-switch on" onclick="this.classList.toggle('on');markUnsaved()"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: DNS -->
+  <div class="panel">
+    <div class="panel-header" onclick="togglePanel('dns')">
+      <span class="panel-icon">&#128737;&#65039;</span>
+      <span class="panel-title">DNS &amp; Content Filtering</span>
+      <span class="panel-subtitle">DHCP Option 6 &mdash; zero overhead</span>
+      <span class="panel-chevron open" id="chevron-dns">&#9660;</span>
+    </div>
+    <div class="panel-body" id="body-dns">
+      <p style="font-size:.82rem;color:var(--muted2);margin-bottom:1rem">
+        DNS is pushed to devices via <strong style="color:var(--accent)">DHCP Option 6</strong>.
+        The router does zero content inspection &mdash; all filtering happens at the DNS provider.
+        A firewall rule prevents any device from bypassing it.
+      </p>
+      <div class="dns-options">
+        <div class="dns-opt selected" onclick="pickDNS(this,'1.1.1.3')">
+          <input type="radio" name="dns" value="1.1.1.3" checked>
+          <div class="dns-badge badge-family">Family Safe</div>
+          <div class="dns-opt-name">Cloudflare Family</div>
+          <div class="dns-opt-ip">1.1.1.3 / 1.0.0.3</div>
+          <div class="dns-opt-desc">Blocks malware + adult content. No account. Fast global network.</div>
+        </div>
+        <div class="dns-opt" onclick="pickDNS(this,'185.228.168.9')">
+          <input type="radio" name="dns" value="185.228.168.9">
+          <div class="dns-badge badge-strict">Strict</div>
+          <div class="dns-opt-name">CleanBrowsing</div>
+          <div class="dns-opt-ip">185.228.168.9</div>
+          <div class="dns-opt-desc">Blocks adult content, proxies &amp; VPN bypass sites.</div>
+        </div>
+        <div class="dns-opt" onclick="pickDNS(this,'208.67.222.123')">
+          <input type="radio" name="dns" value="208.67.222.123">
+          <div class="dns-badge badge-family">Family Safe</div>
+          <div class="dns-opt-name">OpenDNS Family</div>
+          <div class="dns-opt-ip">208.67.222.123</div>
+          <div class="dns-opt-desc">Cisco-backed. Blocks adult content. No account needed.</div>
+        </div>
+        <div class="dns-opt" onclick="pickDNS(this,'9.9.9.11')">
+          <input type="radio" name="dns" value="9.9.9.11">
+          <div class="dns-badge badge-malware">Malware Only</div>
+          <div class="dns-opt-name">Quad9 Secure</div>
+          <div class="dns-opt-ip">9.9.9.11</div>
+          <div class="dns-opt-desc">Blocks malware/phishing only. No adult content filter. Non-profit.</div>
+        </div>
+        <div class="dns-opt" onclick="pickDNS(this,'94.140.14.15')">
+          <input type="radio" name="dns" value="94.140.14.15">
+          <div class="dns-badge badge-family">Family Safe</div>
+          <div class="dns-opt-name">AdGuard Family</div>
+          <div class="dns-opt-ip">94.140.14.15</div>
+          <div class="dns-opt-desc">Blocks ads, trackers &amp; adult content. European servers.</div>
+        </div>
+        <div class="dns-opt" onclick="pickDNS(this,'custom')">
+          <input type="radio" name="dns" value="custom">
+          <div class="dns-badge badge-custom">Custom</div>
+          <div class="dns-opt-name">Custom DNS</div>
+          <div class="dns-opt-ip" id="custom-dns-preview">&mdash;</div>
+          <div class="dns-opt-desc">Enter any DNS resolver IP manually.</div>
+        </div>
+      </div>
+      <div id="custom-dns-field" style="display:none;margin-top:.9rem">
+        <div class="field">
+          <label>Custom DNS Server IP</label>
+          <input type="text" id="custom-dns-ip" placeholder="e.g. 176.103.130.132" oninput="updateCustomPreview()">
+        </div>
+      </div>
+      <hr class="divider">
+      <div class="inline-toggle" style="margin-bottom:.85rem">
+        <div class="tinfo">
+          <strong>Block DNS bypass (port 53 DNAT)</strong>
+          <span>Firewall redirects all outbound DNS back to the router &mdash; devices cannot use their own DNS</span>
+        </div>
+        <div class="mini-switch on" onclick="this.classList.toggle('on');markUnsaved()"></div>
+      </div>
+      <div class="inline-toggle">
+        <div class="tinfo">
+          <strong>Block DNS-over-HTTPS (DoH) bypass</strong>
+          <span>Blocks known DoH providers so browsers can&apos;t silently bypass the DNS filter</span>
+        </div>
+        <div class="mini-switch on" id="BlockDoH" onclick="this.classList.toggle('on');markUnsaved()"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: Schedule -->
+  <div class="panel">
+    <div class="panel-header" onclick="togglePanel('schedule')">
+      <span class="panel-icon">&#127769;</span>
+      <span class="panel-title">Bedtime Schedule</span>
+      <span class="panel-subtitle">Auto on/off by day &amp; hour</span>
+      <span class="panel-chevron open" id="chevron-schedule">&#9660;</span>
+    </div>
+    <div class="panel-body" id="body-schedule">
+      <div class="inline-toggle" style="margin-bottom:1.1rem">
+        <div class="tinfo">
+          <strong>Enable automatic schedule</strong>
+          <span>Kids WiFi turns off outside the allowed hours shown below</span>
+        </div>
+        <div class="mini-switch on" onclick="toggleSchedulePanel(this)"></div>
+      </div>
+      <div id="schedule-config">
+        <div class="schedule-grid" id="schedule-grid"></div>
+        <div class="schedule-legend">
+          <span><span class="legend-dot allowed"></span>WiFi ON</span>
+          <span><span class="legend-dot blocked"></span>WiFi OFF (bedtime)</span>
+          <span style="color:var(--muted);font-size:.7rem">Click or drag cells to toggle</span>
+        </div>
+        <hr class="divider">
+        <div class="grid-2" style="margin-top:.5rem">
+          <div class="field">
+            <label>Quick Preset</label>
+            <select id="schedule-preset" onchange="applyPreset(this.value)">
+              <option value="">&#8212; Choose a preset &#8212;</option>
+              <option value="school">School days (8pm school nights / 9pm weekends)</option>
+              <option value="strict">Strict (9am&ndash;8pm every day)</option>
+              <option value="weekend">Weekends only (Fri 4pm &ndash; Sun 10pm)</option>
+              <option value="allday">Always on (remove restrictions)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Timezone</label>
+            <select id="timezone">
+              <option>Europe/London</option>
+              <option>Europe/Berlin</option>
+              <option>America/New_York</option>
+              <option>America/Los_Angeles</option>
+              <option>Australia/Sydney</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: Devices -->
+  <div class="panel">
+    <div class="panel-header" onclick="togglePanel('devices')">
+      <span class="panel-icon">&#128241;</span>
+      <span class="panel-title">Connected Devices</span>
+      <span class="panel-subtitle" id="devices-count">3 online</span>
+      <span class="panel-chevron open" id="chevron-devices">&#9660;</span>
+    </div>
+    <div class="panel-body" id="body-devices">
+      <div class="device-list" id="device-list"></div>
+      <p class="hint" style="margin-top:.75rem">
+        Blocking a device adds its MAC address to a deny list on this network only. It will not affect the device on other networks.
+      </p>
+    </div>
+  </div>
+
+  <!-- PANEL: GPIO -->
+  <div class="panel">
+    <div class="panel-header" onclick="togglePanel('gpio')">
+      <span class="panel-icon">&#128280;</span>
+      <span class="panel-title">Hardware Kill-Switch</span>
+      <span class="panel-subtitle">GPIO / physical button toggle</span>
+      <span class="panel-chevron" id="chevron-gpio">&#9660;</span>
+    </div>
+    <div class="panel-body hidden" id="body-gpio">
+      <div class="inline-toggle" style="margin-bottom:1.1rem">
+        <div class="tinfo">
+          <strong>Enable hardware button</strong>
+          <span>Assigns a physical router button to instantly toggle Kids WiFi on/off</span>
+        </div>
+        <div class="mini-switch" id="sw-gpio" onclick="toggleGPIOPanel(this)"></div>
+      </div>
+      <div id="gpio-config" style="display:none">
+        <div class="gpio-row">
+          <div class="gpio-icon">&#128308;</div>
+          <div class="gpio-info">
+            <strong>GPIO Pin / Button ID</strong>
+            <p>Common values: <code style="color:var(--accent)">0</code> = WPS button, <code style="color:var(--accent)">11</code> = Reset. Check your router&apos;s page on the OpenWrt Hardware wiki.</p>
+          </div>
+          <input type="number" class="gpio-pin-input" id="gpio-pin" value="0" min="0" max="255" oninput="markUnsaved()">
+        </div>
+        <hr class="divider">
+        <div class="inline-toggle" style="margin-bottom:.85rem">
+          <div class="tinfo">
+            <strong>LED feedback on toggle</strong>
+            <span>Blink the router&apos;s status LED when Kids WiFi is switched</span>
+          </div>
+          <div class="mini-switch" onclick="this.classList.toggle('on');markUnsaved()"></div>
+        </div>
+        <div class="inline-toggle">
+          <div class="tinfo">
+            <strong>Long-press only (3 seconds)</strong>
+            <span>Prevents accidental toggling &mdash; must hold button for 3 seconds</span>
+          </div>
+          <div class="mini-switch on" onclick="this.classList.toggle('on');markUnsaved()"></div>
+        </div>
+        <p class="hint" style="margin-top:.85rem">
+          The plugin writes a hotplug script to
+          <code style="color:var(--accent);font-family:var(--mono)">/etc/hotplug.d/button/30-kids-wifi</code>.
+          Each press toggles <code style="color:var(--accent);font-family:var(--mono)">wireless.kids_wifi.disabled</code> and runs <code style="color:var(--accent);font-family:var(--mono)">wifi reload</code> &mdash; no reboot required.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: Subnet -->
+  <div class="panel">
+    <div class="panel-header" onclick="togglePanel('subnet')">
+      <span class="panel-icon">&#127760;</span>
+      <span class="panel-title">Subnet &amp; Network</span>
+      <span class="panel-subtitle">IP range, DHCP, bandwidth</span>
+      <span class="panel-chevron" id="chevron-subnet">&#9660;</span>
+    </div>
+    <div class="panel-body hidden" id="body-subnet">
+      <div class="grid-2">
+        <div class="field">
+          <label>Kids Gateway IP</label>
+          <input type="text" id="net-gw" value="172.28.10.1" oninput="markUnsaved()">
+          <p class="hint">Router&apos;s IP on the kids subnet. Devices receive addresses in this range.</p>
+        </div>
+        <div class="field">
+          <label>Subnet Mask</label>
+          <input type="text" id="net-mask" value="255.255.255.0" oninput="markUnsaved()">
+        </div>
+        <div class="field">
+          <label>DHCP Range Start</label>
+          <input type="number" id="dhcp-start" value="100" min="2" max="250" oninput="markUnsaved()">
+        </div>
+        <div class="field">
+          <label>DHCP Range Limit</label>
+          <input type="number" id="dhcp-limit" value="50" min="1" max="200" oninput="markUnsaved()">
+        </div>
+        <div class="field">
+          <label>Lease Time</label>
+          <select id="lease-time" onchange="markUnsaved()">
+            <option value="30m">30 minutes</option>
+            <option value="1h">1 hour</option>
+            <option value="4h" selected>4 hours</option>
+            <option value="12h">12 hours</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Max Bandwidth Per Device</label>
+          <select id="bandwidth" onchange="markUnsaved()">
+            <option value="">Unlimited</option>
+            <option value="5">5 Mbit/s</option>
+            <option value="10">10 Mbit/s</option>
+            <option value="20">20 Mbit/s</option>
+            <option value="50">50 Mbit/s</option>
+			<option value="100" selected>100 Mbit/s</option>
+          </select>
+          <p class="hint">Requires tc + iptables-mod-ipopt. Applied per device via tc qdisc.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: Log -->
+  <div class="panel">
+    <div class="panel-header" onclick="togglePanel('log')">
+      <span class="panel-icon">&#128203;</span>
+      <span class="panel-title">Activity Log</span>
+      <span class="panel-subtitle">Recent configuration events</span>
+      <span class="panel-chevron" id="chevron-log">&#9660;</span>
+    </div>
+    <div class="panel-body hidden" id="body-log">
+      <div class="log-box" id="log-box">
+        <div><span class="log-ts">08:42:01</span><span class="log-ok">Kids WiFi enabled on startup</span></div>
+        <div><span class="log-ts">08:42:03</span><span class="log-ok">dnsmasq reloaded &mdash; DNS: 1.1.1.3</span></div>
+        <div><span class="log-ts">09:14:22</span><span class="log-ok">Device joined: Amelie&apos;s iPad (172.28.10.101)</span></div>
+        <div><span class="log-ts">09:31:55</span><span class="log-ok">Device joined: Tom&apos;s Fire HD (172.28.10.102)</span></div>
+        <div><span class="log-ts">20:58:11</span><span class="log-warn">Schedule: 1 minute until bedtime shutdown</span></div>
+        <div><span class="log-ts">21:00:00</span><span class="log-warn">Schedule: Kids WiFi suspended (bedtime)</span></div>
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:.75rem" onclick="document.getElementById('log-box').innerHTML=''">Clear Log</button>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost btn-sm" onclick="grantExtension()" id="ext-btn">&#9201; Grant 1h Extension</button>
+    <button class="btn btn-success" onclick="saveAll()" id="save-btn">&#128190; Save &amp; Apply All</button>
+    <button class="btn btn-ghost" onclick="location.reload()">&#8617; Revert</button>
+    <button class="btn btn-danger btn-sm" style="margin-left:auto"
+      onclick="if(confirm('Remove Kids Network entirely?')){addLog('warn','Kids network removed by user');showToast('ok','Kids network removed')}">
+      &#128465; Remove Kids Network
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast">
+  <span id="toast-icon">&#10004;</span>
+  <span id="toast-msg">Configuration saved.</span>
+</div>
+
+<script>
+var days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+var schedule={};
+days.forEach(function(d) {
+  schedule[d] = [];
+  
+  // School Schedule Logic:
+  // Friday and Saturday (Weekends): 9pm (21:00)
+  // Sunday - Thursday (School nights): 8pm (20:00)
+  var isWeekendNight = (d === 'Fri' || d === 'Sat');
+  var bedtime = isWeekendNight ? 21 : 20;
+  var wakeTime = isWeekendNight ? 8 : 7; // Wake up a bit later on weekends
+
+  for (var h = 0; h < 24; h++) {
+    // Fill the array: true (Allowed) during the day, false (Blocked) at night
+    schedule[d][h] = (h >= wakeTime && h < bedtime);
+  }
+});
+var devices=[
+  {name:"Amelie's iPad",mac:"a4:c3:f0:11:22:33",ip:"172.28.10.101",online:true,time:"3h 12m"},
+  {name:"Tom's Fire HD",mac:"b8:27:eb:44:55:66",ip:"172.28.10.102",online:true,time:"1h 45m"},
+  {name:"Lena's Nintendo",mac:"7c:bb:8a:77:88:99",ip:"172.28.10.103",online:true,time:"22m"},
+  {name:"Old Kindle",mac:"00:11:22:33:44:55",ip:"--",online:false,time:"2d ago"}
+];
+var blocked={};
+var selectedDNS='1.1.1.3';
+var isDragging=false,dragValue=true;
+
+var primarySSID = "";
+var suggestedSSID = "";
+
+function grantExtension() {
+    const btn = document.getElementById('ext-btn');
+    btn.disabled = true;
+    
+    fetch('<%=luci.dispatcher.build_url("admin","network","parental_privacy","extend")%>')
+    .then(res => res.json())
+    .then(data => {
+        if(data.success) {
+            showToast('ok', 'WiFi is forced ON for the next hour.');
+            addLog('ok', 'Parent granted 60-minute manual extension.');
+            setTimeout(() => { btn.disabled = false; }, 5000);
+        }
+    });
+}
+
+// Fetch status and update the suggestion
+function updateStatus() {
+  fetch('<%=luci.dispatcher.build_url("admin","network","parental_privacy","status")%>')
+    .then(res => res.json())
+    .then(data => {
+      primarySSID = data.primary_ssid;
+      suggestedSSID = data.suggested_ssid;
+      
+      // Update the suggestion text in the UI
+      document.getElementById('ssid-suggestion-text').textContent = suggestedSSID;
+      
+      // Update current SSID display if not modified by user
+      if (document.getElementById('unsaved-badge').style.display === 'none') {
+        document.getElementById('wifi-ssid').value = data.ssid;
+        document.getElementById('stat-ssid').textContent = data.ssid;
+      }
+
+      // Update connected devices list
+      updateDeviceList(data.devices);
+    });
+}
+
+// Function to apply the suggested SSID name
+function useSuggestedSSID() {
+  const ssidInput = document.getElementById('wifi-ssid');
+  ssidInput.value = suggestedSSID;
+  markUnsaved();
+  showToast('ok', 'Switched to suggested SSID');
+}
+
+// Updated markUnsaved to reflect SSID changes in the status card
+function markUnsaved() {
+  document.getElementById('unsaved-badge').style.display = 'inline-flex';
+  const currentSSID = document.getElementById('wifi-ssid').value;
+  document.getElementById('stat-ssid').textContent = currentSSID || suggestedSSID;
+}
+
+// Run status update on load
+document.addEventListener("DOMContentLoaded", function() {
+  updateStatus();
+  // Poll every 30 seconds
+  setInterval(updateStatus, 30000);
+});
+
+function togglePanel(id){
+  var b=document.getElementById('body-'+id);
+  var c=document.getElementById('chevron-'+id);
+  var h=b.classList.contains('hidden');
+  if(h){b.classList.remove('hidden');c.classList.add('open');}
+  else{b.classList.add('hidden');c.classList.remove('open');}
+}
+
+function toggleMaster(){
+  var sw=document.getElementById('master-switch');
+  var lb=document.getElementById('master-label');
+  sw.classList.toggle('on');
+  var on=sw.classList.contains('on');
+  lb.textContent=on?'Kids WiFi Active':'Kids WiFi Off';
+  addLog(on?'ok':'warn','Kids WiFi '+(on?'ENABLED':'DISABLED')+' manually');
+  markUnsaved();
+}
+
+function pickRadio(el, val) {
+  document.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  el.querySelector('input').checked = true; // Add this line
+  markUnsaved();
+}
+
+function pickDNS(el,val){
+  document.querySelectorAll('.dns-opt').forEach(function(c){c.classList.remove('selected');});
+  el.classList.add('selected');
+  selectedDNS=val;
+  document.getElementById('custom-dns-field').style.display=(val==='custom')?'block':'none';
+  if(val!=='custom') document.getElementById('stat-dns').textContent=val;
+  markUnsaved();
+}
+
+function updateCustomPreview(){
+  var v=document.getElementById('custom-dns-ip').value||'--';
+  document.getElementById('custom-dns-preview').textContent=v;
+  document.getElementById('stat-dns').textContent=v;
+  markUnsaved();
+}
+
+function toggleSchedulePanel(el){
+  el.classList.toggle('on');
+  document.getElementById('schedule-config').style.display=
+    el.classList.contains('on')?'block':'none';
+  markUnsaved();
+}
+
+function toggleGPIOPanel(el){
+  el.classList.toggle('on');
+  document.getElementById('gpio-config').style.display=
+    el.classList.contains('on')?'block':'none';
+  markUnsaved();
+}
+
+function buildScheduleGrid(){
+  var g=document.getElementById('schedule-grid');
+  g.innerHTML='';
+  // header
+  var corner=document.createElement('div');
+  corner.className='sg-label';g.appendChild(corner);
+  for(var h=0;h<24;h++){
+    var l=document.createElement('div');
+    l.className='sg-hour-label';
+    l.textContent=h===0?'12a':h<12?h+'a':h===12?'12p':(h-12)+'p';
+    g.appendChild(l);
+  }
+  days.forEach(function(day){
+    var dl=document.createElement('div');
+    dl.className='sg-label';dl.textContent=day;g.appendChild(dl);
+    for(var h=0;h<24;h++){
+      (function(d,hr){
+        var cell=document.createElement('div');
+        cell.className='sg-cell '+(schedule[d][hr]?'allowed':'blocked');
+        cell.dataset.day=d;cell.dataset.hr=hr;
+        cell.addEventListener('mousedown',function(e){
+          e.preventDefault();isDragging=true;dragValue=!schedule[d][hr];setCell(d,hr,dragValue);
+        });
+        cell.addEventListener('mouseenter',function(){if(isDragging)setCell(d,hr,dragValue);});
+        g.appendChild(cell);
+      })(day,h);
+    }
+  });
+  document.addEventListener('mouseup',function(){isDragging=false;});
+}
+
+function setCell(day,hr,val){
+  schedule[day][hr]=val;
+  document.querySelectorAll('.sg-cell').forEach(function(c){
+    if(c.dataset.day===day&&parseInt(c.dataset.hr)===hr){
+      c.className='sg-cell '+(val?'allowed':'blocked');
+    }
+  });
+  updateScheduleStat();markUnsaved();
+}
+
+function updateScheduleStat(){
+  var now=new Date();
+  var dn=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var today=dn[now.getDay()];
+  var h=now.getHours();
+  var on=schedule[today]&&schedule[today][h];
+  if(!on){
+    var next=-1;
+    for(var i=h+1;i<24;i++){if(schedule[today]&&schedule[today][i]){next=i;break;}}
+    document.getElementById('stat-schedule').textContent=next>=0?'OFF - ON at '+next+':00':'OFF today';
+  } else {
+    var off=-1;
+    for(var j=h+1;j<24;j++){if(schedule[today]&&!schedule[today][j]){off=j;break;}}
+    document.getElementById('stat-schedule').textContent=off>=0?'ON until '+off+':00':'ON all day';
+  }
+}
+
+function applyPreset(val) {
+  if (!val) return;
+  
+  days.forEach(function(d) {
+    // Define the bedtime based on "School Night" logic
+    // Friday and Saturday: 9pm (21:00)
+    // Sunday - Thursday: 8pm (20:00)
+    var isWeekendNight = (d === 'Fri' || d === 'Sat');
+    var bedtime = isWeekendNight ? 21 : 20;
+    var wakeTime = isWeekendNight ? 6 : 6; // Wake up later on weekends
+
+    for (var h = 0; h < 24; h++) {
+      if (val === 'school') {
+        schedule[d][h] = (h >= wakeTime && h < bedtime);
+      } 
+      else if (val === 'strict') {
+        schedule[d][h] = (h >= 9 && h < 19); // 9am to 7pm every day
+      } 
+      else if (val === 'weekend') {
+        // Only ON from Friday 4pm through Sunday night
+        schedule[d][h] = (d === 'Fri' && h >= 16) || d === 'Sat' || (d === 'Sun' && h < 20);
+      } 
+      else if (val === 'allday') {
+        schedule[d][h] = true;
+      }
+    }
+  });
+
+  buildScheduleGrid();
+  updateScheduleStat();
+  markUnsaved();
+  document.getElementById('schedule-preset').value = '';
+}
+
+function buildDeviceList(){
+  var list=document.getElementById('device-list');
+  list.innerHTML='';
+  var onlineCount=0;
+  devices.forEach(function(dev,i){
+    if(dev.online)onlineCount++;
+    var row=document.createElement('div');
+    row.className='device-row';
+    row.innerHTML=
+      '<div class="device-dot '+(dev.online?'online':'offline')+'"></div>'+
+      '<div style="flex:1"><div class="device-name">'+dev.name+'</div>'+
+      '<div class="device-mac">'+dev.mac+'</div></div>'+
+      '<div class="device-ip">'+dev.ip+'</div>'+
+      '<div class="device-time" style="margin-left:.5rem">'+dev.time+'</div>'+
+      '<button class="device-block'+(blocked[dev.mac]?' blocked':'')+'" onclick="toggleBlock('+i+',this)">'+
+      (blocked[dev.mac]?'Blocked':'Block')+'</button>';
+    list.appendChild(row);
+  });
+  document.getElementById('stat-devices').textContent=onlineCount;
+  document.getElementById('devices-count').textContent=onlineCount+' online';
+}
+
+function toggleBlock(i,btn){
+  var mac=devices[i].mac;
+  blocked[mac]=!blocked[mac];
+  btn.classList.toggle('blocked');
+  btn.textContent=blocked[mac]?'Blocked':'Block';
+  addLog(blocked[mac]?'warn':'ok',(blocked[mac]?'Blocked: ':'Unblocked: ')+devices[i].name);
+  markUnsaved();
+}
+
+function markUnsaved(){
+  document.getElementById('unsaved-badge').style.display='inline-flex';
+  document.getElementById('stat-ssid').textContent=
+    document.getElementById('wifi-ssid').value||'_Kids_WiFi';
+}
+
+function addLog(type,msg){
+  var box=document.getElementById('log-box');
+  var now=new Date();
+  var ts=now.getHours().toString().padStart(2,'0')+':'+
+         now.getMinutes().toString().padStart(2,'0')+':'+
+         now.getSeconds().toString().padStart(2,'0');
+  var div=document.createElement('div');
+  div.innerHTML='<span class="log-ts">'+ts+'</span><span class="log-'+type+'">'+msg+'</span>';
+  box.appendChild(div);
+  box.scrollTop=box.scrollHeight;
+}
+
+var toastTimer;
+function showToast(type,msg){
+  var t=document.getElementById('toast');
+  document.getElementById('toast-msg').textContent=msg;
+  t.className='toast show '+type;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){t.className='toast';},3200);
+}
+
+function saveAll() {
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Applying...';
+
+  // Gather all data into the JSON format expected by the LUA controller
+  const payload = {
+    master: document.getElementById('master-switch').classList.contains('on'),
+    ssid: document.getElementById('wifi-ssid').value,
+    password: document.getElementById('wifi-pwd').value,
+    radio: document.querySelector('.radio-card.selected input').value,
+	isolate: document.getElementById('sw-isolate').classList.contains('on'),
+    dns: selectedDNS === 'custom' ? document.getElementById('custom-dns-ip').value : selectedDNS,
+    doh: document.getElementById('BlockDoH').classList.contains('on'),
+    bandwidth: document.getElementById('bandwidth').value,
+    lanblock: document.querySelectorAll('.mini-switch')[1].classList.contains('on'),
+	schedule_data: schedule
+  };
+
+  fetch('<%=luci.dispatcher.build_url("admin","network","parental_privacy","apply")%>', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  .then(res => res.json())
+  .then(data => {
+    btn.disabled = false;
+    btn.textContent = 'Save & Apply All';
+    if (data.success) {
+      document.getElementById('unsaved-badge').style.display = 'none';
+      showToast('ok', 'Settings applied successfully!');
+      addLog('ok', 'Applied settings to ' + payload.radio);
+    } else {
+      showToast('err', 'Error: ' + data.error);
+    }
+  })
+  .catch(e => {
+    btn.disabled = false;
+    showToast('err', 'Connection failed');
+  });
+}
+
+function pickRadio(el, val) {
+  document.querySelectorAll('.radio-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  el.querySelector('input').checked = true;
+  markUnsaved();
+}
+
+buildScheduleGrid();
+buildDeviceList();
+updateScheduleStat();
+updateStatus();
+</script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="320" viewBox="0 0 900 320">
+  <defs>
+    <style>text { font-family: 'Segoe UI', Arial, sans-serif; } .mono { font-family: 'Consolas','Courier New',monospace; }</style>
+  </defs>
+  <rect width="900" height="320" fill="#0a0e1a" rx="8"/>
+
+  <!-- Panel header -->
+  <rect x="20" y="16" width="860" height="48" fill="#111827" rx="10" stroke="#1f2d45" stroke-width="1"/>
+  <text x="38" y="46" font-size="16">🌙</text>
+  <text x="58" y="47" fill="#e2e8f0" font-size="14" font-weight="600">Bedtime Schedule</text>
+  <text x="660" y="47" fill="#64748b" font-size="12">Auto on/off by day &amp; hour</text>
+  <text x="840" y="47" fill="#64748b" font-size="12">▲</text>
+  <rect x="20" y="63" width="860" height="1" fill="#1f2d45"/>
+
+  <!-- Panel body -->
+  <rect x="20" y="63" width="860" height="240" fill="#111827" rx="0" stroke="#1f2d45" stroke-width="1"/>
+
+  <!-- Enable toggle row -->
+  <text x="36" y="93" fill="#e2e8f0" font-size="13" font-weight="600">Enable automatic schedule</text>
+  <text x="36" y="110" fill="#64748b" font-size="11">Kids WiFi turns off outside the allowed hours shown below</text>
+  <rect x="820" y="82" width="38" height="22" fill="#34d399" rx="11"/>
+  <circle cx="846" cy="93" r="9" fill="white"/>
+
+  <!-- Hour header labels -->
+  <text x="95" y="135" fill="#64748b" font-size="9" class="mono" text-anchor="middle">12a</text>
+  <text x="127" y="135" fill="#64748b" font-size="9" class="mono" text-anchor="middle">3a</text>
+  <text x="191" y="135" fill="#64748b" font-size="9" class="mono" text-anchor="middle">6a</text>
+  <text x="287" y="135" fill="#64748b" font-size="9" class="mono" text-anchor="middle">9a</text>
+  <text x="383" y="135" fill="#64748b" font-size="9" class="mono" text-anchor="middle">12p</text>
+  <text x="479" y="135" fill="#64748b" font-size="9" class="mono" text-anchor="middle">3p</text>
+  <text x="575" y="135" fill="#64748b" font-size="9" class="mono" text-anchor="middle">6p</text>
+  <text x="671" y="135" fill="#64748b" font-size="9" class="mono" text-anchor="middle">9p</text>
+  <text x="735" y="135" fill="#64748b" font-size="9" class="mono" text-anchor="middle">11p</text>
+
+  <!-- Schedule rows: Mon–Sun. Blocked = dark red tint (night), allowed = green tint (day) -->
+  <!-- Helper: each hour cell is 32px wide starting at x=85, each row is 22px tall starting at y=138 -->
+  <!-- Row labels -->
+  <text x="55" y="153" fill="#94a3b8" font-size="11" class="mono">Mon</text>
+  <text x="55" y="175" fill="#94a3b8" font-size="11" class="mono">Tue</text>
+  <text x="55" y="197" fill="#94a3b8" font-size="11" class="mono">Wed</text>
+  <text x="55" y="219" fill="#94a3b8" font-size="11" class="mono">Thu</text>
+  <text x="55" y="241" fill="#94a3b8" font-size="11" class="mono">Fri</text>
+  <text x="55" y="263" fill="#94a3b8" font-size="11" class="mono">Sat</text>
+  <text x="55" y="285" fill="#94a3b8" font-size="11" class="mono">Sun</text>
+
+  <!-- Generate schedule cells for each day. School schedule: blocked 0-6, allowed 7-19, blocked 20-23 (weekdays) -->
+  <!-- Weekends: blocked 0-7, allowed 8-20, blocked 21-23 -->
+  <!-- I'll draw blocked segments and allowed segments as rectangles -->
+
+  <!-- Mon: blocked 0-6 (7 cells = 7*32=224px), allowed 7-19 (13*32=416px), blocked 20-23 (4*32=128px) -->
+  <rect x="85" y="140" width="224" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+  <rect x="309" y="140" width="416" height="20" fill="rgba(52,211,153,0.22)" rx="2" stroke="rgba(52,211,153,0.35)" stroke-width="0.5"/>
+  <rect x="725" y="140" width="128" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+
+  <!-- Tue same as Mon -->
+  <rect x="85" y="162" width="224" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+  <rect x="309" y="162" width="416" height="20" fill="rgba(52,211,153,0.22)" rx="2" stroke="rgba(52,211,153,0.35)" stroke-width="0.5"/>
+  <rect x="725" y="162" width="128" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+
+  <!-- Wed -->
+  <rect x="85" y="184" width="224" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+  <rect x="309" y="184" width="416" height="20" fill="rgba(52,211,153,0.22)" rx="2" stroke="rgba(52,211,153,0.35)" stroke-width="0.5"/>
+  <rect x="725" y="184" width="128" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+
+  <!-- Thu -->
+  <rect x="85" y="206" width="224" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+  <rect x="309" y="206" width="416" height="20" fill="rgba(52,211,153,0.22)" rx="2" stroke="rgba(52,211,153,0.35)" stroke-width="0.5"/>
+  <rect x="725" y="206" width="128" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+
+  <!-- Fri: blocked 0-7, allowed 8-20, blocked 21-23 -->
+  <rect x="85" y="228" width="256" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+  <rect x="341" y="228" width="416" height="20" fill="rgba(52,211,153,0.22)" rx="2" stroke="rgba(52,211,153,0.35)" stroke-width="0.5"/>
+  <rect x="757" y="228" width="96" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+
+  <!-- Sat same as Fri -->
+  <rect x="85" y="250" width="256" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+  <rect x="341" y="250" width="416" height="20" fill="rgba(52,211,153,0.22)" rx="2" stroke="rgba(52,211,153,0.35)" stroke-width="0.5"/>
+  <rect x="757" y="250" width="96" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+
+  <!-- Sun same as Mon -->
+  <rect x="85" y="272" width="224" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+  <rect x="309" y="272" width="416" height="20" fill="rgba(52,211,153,0.22)" rx="2" stroke="rgba(52,211,153,0.35)" stroke-width="0.5"/>
+  <rect x="725" y="272" width="128" height="20" fill="rgba(248,113,113,0.22)" rx="2" stroke="rgba(248,113,113,0.35)" stroke-width="0.5"/>
+
+  <!-- Legend -->
+  <rect x="36" y="298" width="10" height="10" fill="rgba(52,211,153,0.5)" rx="2"/>
+  <text x="50" y="308" fill="#94a3b8" font-size="11">WiFi ON</text>
+  <rect x="110" y="298" width="10" height="10" fill="rgba(248,113,113,0.5)" rx="2"/>
+  <text x="124" y="308" fill="#94a3b8" font-size="11">WiFi OFF (bedtime)</text>
+  <text x="280" y="308" fill="#64748b" font-size="10">Click or drag cells to toggle</text>
+</svg>
