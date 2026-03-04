@@ -53,6 +53,11 @@ function action_status()
         suggested_ssid = suggested,
         devices        = leases,
         uptime         = sys.uptime()
+        button_config  = {
+            btn0  = (uci:get("parental_privacy", "default", "button_btn0")  == "1"),
+            wps   = (uci:get("parental_privacy", "default", "button_wps")   == "1"),
+            reset = (uci:get("parental_privacy", "default", "button_reset") == "1")
+        }
     }))
 end
 
@@ -191,7 +196,14 @@ function action_apply()
                 set_wifi("key", data.password)
             end
             if data.isolate ~= nil then set_wifi("isolate", data.isolate and "1" or "0") end
-            
+
+            -- Button assignments
+            if data.button_config then
+                uci:set("parental_privacy", "default", "button_btn0",  data.button_config.btn0  and "1" or "0")
+                uci:set("parental_privacy", "default", "button_wps",   data.button_config.wps   and "1" or "0")
+                uci:set("parental_privacy", "default", "button_reset", data.button_config.reset and "1" or "0")
+            end
+
             -- Bandwidth Limiting
             if data.bandwidth then
                 sys.call("/usr/share/parental-privacy/bandwidth.sh " .. data.bandwidth)
