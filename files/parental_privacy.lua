@@ -180,6 +180,12 @@ function action_apply()
                 sys.call("/usr/share/parental-privacy/block-doh.sh " .. doh_state)
             end
 
+            -- SafeSearch (Google, Bing, YouTube restricted mode)
+            if data.safesearch ~= nil then
+                local ss_state = data.safesearch and "enable" or "disable"
+                sys.call("/usr/share/parental-privacy/safesearch.sh " .. ss_state)
+            end                
+                
             -- Safe Cron Management
             if data.schedule_data then
                 local new_cron = {}
