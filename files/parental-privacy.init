@@ -11,7 +11,7 @@ STOP=89
 # `/etc/init.d/parental-privacy reload` works via the standard init.d
 # interface, and so LuCI can call it after a firewall restart.
 EXTRA_COMMANDS="reload"
-EXTRA_HELP="        reload  Re-apply all parental-privacy rules (DoH, bandwidth, SafeSearch)"
+EXTRA_HELP="        reload  Re-apply all parental-privacy rules (DoH, SafeSearch)"
 
 start() {
     local ss

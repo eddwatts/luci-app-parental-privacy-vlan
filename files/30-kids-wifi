@@ -1,35 +1,44 @@
 #!/bin/sh
 # /etc/hotplug.d/button/30-kids-wifi
 #
-# Handles physical button/slider control of the Kids WiFi network.
+# Handles physical button/slider control of the Kids Network internet access.
 # Each button type must be explicitly enabled in the parental_privacy UCI
 # config (via the dashboard Hardware panel) before it will act.
 #
+# WiFi radios are NEVER toggled — devices stay associated, keep their IPs,
+# and DNS continues to resolve. Internet access is controlled exclusively via
+# a firewall REJECT rule on the kids→wan forward chain (schedule-block.sh).
+# This means wired VLAN devices are blocked identically to WiFi ones.
+#
 # Supported triggers:
-#   BTN_0       — GL.iNet hardware slider (pressed=ON, released=OFF)
-#   wps         — WPS button (toggle on press)
-#   reset       — Reset button (toggle on press)
+#   BTN_0       — GL.iNet hardware slider (pressed=internet ON, released=OFF)
+#   wps         — WPS button (toggle internet on press)
+#   reset       — Reset button (toggle internet on press)
 #   gpio/<pin>  — Custom GPIO pin (slider: pressed=ON, released=OFF)
 
-# ── Helper: set all kids bands to the same state ─────────────────────────────
-set_kids_wifi() {
-    STATE="$1"  # 0 for ON (enabled), 1 for OFF (disabled)
+BLOCK_SH="/usr/share/parental-privacy/schedule-block.sh"
 
-    # Sync all bands — always update 2.4GHz; update 5G and 6G only if they exist
-    uci set wireless.kids_wifi.disabled="$STATE"
-    uci -q get wireless.kids_wifi_5g >/dev/null 2>&1 && \
-        uci set wireless.kids_wifi_5g.disabled="$STATE"
-    uci -q get wireless.kids_wifi_6g >/dev/null 2>&1 && \
-        uci set wireless.kids_wifi_6g.disabled="$STATE"
-    uci commit wireless
-
-    if [ "$STATE" = "0" ]; then
-        ubus call network.interface.kids up
+# ── Helper: set internet access state ────────────────────────────────────────
+# "allow"  — removes the firewall block rule (internet ON)
+# "block"  — installs the firewall block rule (internet OFF)
+set_internet() {
+    local action="$1"  # "allow" or "block"
+    if [ "$action" = "allow" ]; then
+        "$BLOCK_SH" disable
+        logger -t parental-privacy "Kids internet access ALLOWED via button"
     else
-        ubus call network.interface.kids down
+        "$BLOCK_SH" enable
+        logger -t parental-privacy "Kids internet access BLOCKED via button"
     fi
+}
 
-    logger -t parental-privacy "Kids WiFi $([ "$STATE" = "0" ] && echo enabled || echo disabled) via button (all bands)"
+# ── Helper: toggle current internet state ────────────────────────────────────
+toggle_internet() {
+    if [ "$("$BLOCK_SH" status)" = "blocked" ]; then
+        set_internet "allow"
+    else
+        set_internet "block"
+    fi
 }
 
 # ── Read enabled flags and configured GPIO pin ────────────────────────────────
@@ -40,39 +49,25 @@ GPIO_PIN=$(uci -q get parental_privacy.default.gpio_pin)
 GPIO_BUTTON=""
 [ -n "$GPIO_PIN" ] && GPIO_BUTTON="gpio/$GPIO_PIN"
 
-# ── BTN_0 slider: pressed=ON, released=OFF ────────────────────────────────────
+# ── BTN_0 slider: pressed=internet ON, released=internet OFF ─────────────────
 if [ "$BUTTON" = "BTN_0" ] && [ "$ENABLE_BTN0" = "1" ]; then
     case "$ACTION" in
-        pressed)  set_kids_wifi "0" ;;
-        released) set_kids_wifi "1" ;;
+        pressed)  set_internet "allow" ;;
+        released) set_internet "block" ;;
     esac
 
-# ── Custom GPIO slider: pressed=ON, released=OFF ──────────────────────────────
+# ── Custom GPIO slider: pressed=internet ON, released=internet OFF ────────────
 elif [ -n "$GPIO_BUTTON" ] && [ "$BUTTON" = "$GPIO_BUTTON" ]; then
     case "$ACTION" in
-        pressed)  set_kids_wifi "0" ;;
-        released) set_kids_wifi "1" ;;
+        pressed)  set_internet "allow" ;;
+        released) set_internet "block" ;;
     esac
 
-# ── WPS button: toggle on press ───────────────────────────────────────────────
+# ── WPS button: toggle internet access on press ───────────────────────────────
 elif [ "$BUTTON" = "wps" ] && [ "$ENABLE_WPS" = "1" ]; then
-    if [ "$ACTION" = "pressed" ]; then
-        CURRENT=$(uci -q get wireless.kids_wifi.disabled)
-        if [ "$CURRENT" = "1" ]; then
-            set_kids_wifi "0"
-        else
-            set_kids_wifi "1"
-        fi
-    fi
+    [ "$ACTION" = "pressed" ] && toggle_internet
 
-# ── Reset button: toggle on press ────────────────────────────────────────────
+# ── Reset button: toggle internet access on press ────────────────────────────
 elif [ "$BUTTON" = "reset" ] && [ "$ENABLE_RESET" = "1" ]; then
-    if [ "$ACTION" = "pressed" ]; then
-        CURRENT=$(uci -q get wireless.kids_wifi.disabled)
-        if [ "$CURRENT" = "1" ]; then
-            set_kids_wifi "0"
-        else
-            set_kids_wifi "1"
-        fi
-    fi
+    [ "$ACTION" = "pressed" ] && toggle_internet
 fi

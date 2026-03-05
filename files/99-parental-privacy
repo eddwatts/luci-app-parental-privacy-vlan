@@ -37,11 +37,7 @@ KIDS_IP="172.28.${KIDS_VLAN}.1"
 
 logger -t parental-privacy "Using VLAN ${KIDS_VLAN} (subnet 172.28.${KIDS_VLAN}.0/24)"
 
-# Ensure installed scripts are executable
-mkdir -p "$INSTALL_DIR"
-for script in bandwidth.sh block-doh.sh broadcast-relay.sh; do
-    [ -f "$INSTALL_DIR/$script" ] && chmod +x "$INSTALL_DIR/$script"
-done
+
 
 # ── Sanity check: confirm DSA is available ───────────────────────────────────
 # If br-lan doesn't exist yet or swconfig is in use, abort cleanly and let
@@ -61,7 +57,7 @@ fi
 uci -q batch <<'EOF'
 set parental_privacy.default=config
 EOF
-# Persist the chosen VLAN so bandwidth.sh and other scripts can read it at runtime
+# Persist the chosen VLAN so scripts can read it at runtime
 uci set parental_privacy.default.vlan_id="$KIDS_VLAN"
 for day in Mon Tue Wed Thu Sun; do
     uci set parental_privacy.default.schedule_$day='06:00-20:00'

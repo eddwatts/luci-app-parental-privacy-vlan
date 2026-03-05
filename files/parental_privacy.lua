@@ -74,86 +74,13 @@ end
 -- ──────────────────────────────────────────────────────────────────
 function action_extend()
     local sys  = require "luci.sys"
-    local uci  = require("luci.model.uci").cursor()
     local json = require "luci.jsonc"
 
-    -- Enable kids WiFi on all configured bands
-    local function enable_all(state)
-        uci:set("wireless", "kids_wifi", "disabled", state)
-        if uci:get("wireless", "kids_wifi_5g") then uci:set("wireless", "kids_wifi_5g", "disabled", state) end
-        if uci:get("wireless", "kids_wifi_6g") then uci:set("wireless", "kids_wifi_6g", "disabled", state) end
-        uci:commit("wireless")
-    end
-
-    -- Calculate the UTC time one hour from now for the cron expression.
-    -- `date -u` is available on all OpenWrt builds (busybox date).
-    local h = tonumber(sys.exec("date -u +%H"):match("%d+")) or 0
-    local m = tonumber(sys.exec("date -u +%M"):match("%d+")) or 0
-    local d = tonumber(sys.exec("date -u +%d"):match("%d+")) or 1
-    local mo = tonumber(sys.exec("date -u +%m"):match("%d+")) or 1
-
-    local fire_h = (h + 1) % 24
-    -- If the hour rolls past midnight, advance the day-of-month.
-    -- Using day+month (not day-of-week) is simpler and unambiguous.
-    local fire_d = d
-    local fire_mo = mo
-    if h + 1 >= 24 then
-        -- Advance date by one day; let the shell handle month wrap via `date`
-        local next_day = sys.exec("date -u -d 'tomorrow' '+%d %m' 2>/dev/null"):match("(%d+)%s+(%d+)")
-        if next_day then
-            fire_d, fire_mo = next_day:match("(%d+)%s+(%d+)")
-            fire_d  = tonumber(fire_d)  or d
-            fire_mo = tonumber(fire_mo) or mo
-        end
-    end
-
-    -- Build the disable command; sync all detected bands
-    local disable_cmd = "uci set wireless.kids_wifi.disabled=1"
-    if uci:get("wireless", "kids_wifi_5g") then
-        disable_cmd = disable_cmd .. " && uci set wireless.kids_wifi_5g.disabled=1"
-    end
-    if uci:get("wireless", "kids_wifi_6g") then
-        disable_cmd = disable_cmd .. " && uci set wireless.kids_wifi_6g.disabled=1"
-    end
-    disable_cmd = disable_cmd .. " && uci commit wireless && wifi reload"
-
-    -- The cron entry removes itself after firing so it is truly one-shot.
-    -- The marker comment lets us identify and replace it on repeated calls.
-    local MARKER = "#kids-extend"
-    local cron_line = string.format(
-        "%d %d %d %d * %s && sed -i '/%s/d' /etc/crontabs/root && /etc/init.d/cron reload  %s",
-        m, fire_h, fire_d, fire_mo, disable_cmd, MARKER, MARKER
-    )
-
-    -- Replace any previous extend entry, then append the new one
-    local new_cron = {}
-    local cf = io.open("/etc/crontabs/root", "r")
-    if cf then
-        for line in cf:lines() do
-            if not line:find(MARKER, 1, true) then
-                table.insert(new_cron, line)
-            end
-        end
-        cf:close()
-    end
-    table.insert(new_cron, cron_line)
-
-    local wf = io.open("/etc/crontabs/root", "w")
-    if not wf then
-        luci.http.prepare_content("application/json")
-        luci.http.write(json.stringify({success=false, error="could not write crontab"}))
-        return
-    end
-    for _, line in ipairs(new_cron) do wf:write(line .. "\n") end
-    wf:close()
-    sys.call("/etc/init.d/cron reload")
-
-    -- Enable WiFi immediately
-    enable_all("0")
-    sys.call("wifi reload")
-
+    -- Delegate entirely to the shell rpcd script which uses the firewall
+    -- block method (no WiFi radio toggle, no disruptive wifi restart).
+    local ok = (sys.call("/usr/share/parental-privacy/rpc-extend.sh") == 0)
     luci.http.prepare_content("application/json")
-    luci.http.write(json.stringify({success=true, message="1-hour extension active"}))
+    luci.http.write(json.stringify({success=ok, message=ok and "1-hour extension active" or "extend failed"}))
 end
 
 -- ──────────────────────────────────────────────────────────────────
@@ -247,7 +174,15 @@ function action_apply()
 
         -- 2. FLAT DATA LOGIC (For Dashboard Saves)
         else
-            if data.master ~= nil then set_wifi("disabled", data.master and "0" or "1") end
+            -- Master toggle: use firewall block rule, not WiFi radio toggle.
+            -- WiFi stays up; devices keep their IPs; only forwarded data is blocked.
+            if data.master ~= nil then
+                if data.master then
+                    sys.call("/usr/share/parental-privacy/schedule-block.sh disable")
+                else
+                    sys.call("/usr/share/parental-privacy/schedule-block.sh enable")
+                end
+            end
             if data.ssid and data.ssid ~= "" then set_wifi("ssid", data.ssid) end
             if data.password and #data.password >= 8 then
                 set_wifi("encryption", "psk2")
@@ -277,7 +212,9 @@ function action_apply()
 				uci:set("parental_privacy", "default", "safesearch", data.safesearch and "1" or "0")
 			end
 
-            -- Safe Cron Management
+            -- Schedule: delegate to rpc-apply.sh via stdin, which writes
+            -- schedule-block.sh cron entries (firewall method, no WiFi toggle).
+            -- The Lua path passes the schedule_data through unchanged.
             if data.schedule_data then
                 local new_cron = {}
                 local f_old = io.open("/etc/crontabs/root", "r")
@@ -290,10 +227,6 @@ function action_apply()
 
                 local days_map = {Mon="1", Tue="2", Wed="3", Thu="4", Fri="5", Sat="6", Sun="0"}
 
-                -- Determine the UTC offset in whole hours so cron (which runs in UTC
-                -- on most OpenWrt builds) fires at the correct wall-clock time.
-                -- `date +%z` returns the POSIX offset e.g. +0530 or -0700, which is
-                -- reliable at midnight unlike comparing %H across two calls.
                 local tz_offset = 0
                 do
                     local z = sys.exec("date +%z 2>/dev/null"):match("([+-]%d%d%d%d)")
@@ -301,33 +234,28 @@ function action_apply()
                         local sign  = (z:sub(1,1) == "-") and -1 or 1
                         local hours = tonumber(z:sub(2,3)) or 0
                         local mins  = tonumber(z:sub(4,5)) or 0
-                        -- Round to nearest whole hour (handles +0530, +0545, etc.)
                         tz_offset = sign * math.floor(hours + mins / 60 + 0.5)
                     end
                 end
 
+                local enable_cmd  = "/usr/share/parental-privacy/schedule-block.sh disable"
+                local disable_cmd = "/usr/share/parental-privacy/schedule-block.sh enable"
+
                 for day, hours in pairs(data.schedule_data) do
                     for h = 0, 23 do
-                        -- Compare this hour's state against the previous hour to find transitions.
-                        -- For h==0 (midnight), wrap back to hour 24 (index 24 = 11pm state).
                         local prev_idx = (h == 0) and 24 or h
                         if hours[h+1] ~= hours[prev_idx] then
-                            local state = hours[h+1] and "0" or "1"
-                            local cmd = string.format("uci set wireless.kids_wifi.disabled=%s", state)
-                            -- Sync all bands to the schedule
-                            if uci:get("wireless", "kids_wifi_5g") then cmd = cmd .. " && uci set wireless.kids_wifi_5g.disabled=" .. state end
-                            if uci:get("wireless", "kids_wifi_6g") then cmd = cmd .. " && uci set wireless.kids_wifi_6g.disabled=" .. state end
-                            cmd = cmd .. " && uci commit wireless && wifi reload"
+                            -- true = start of allowed window (remove block)
+                            -- false = end of allowed window (install block)
+                            local cmd = hours[h+1] and enable_cmd or disable_cmd
 
-                            -- Convert the local hour to UTC for the cron expression.
-                            -- If the shift crosses midnight the day-of-week must also roll.
                             local utc_h   = (h - tz_offset) % 24
                             local day_num = tonumber(days_map[day]) or 0
                             local day_shift = 0
                             if (h - tz_offset) < 0  then day_shift = -1 end
                             if (h - tz_offset) >= 24 then day_shift =  1 end
                             local utc_dow = (day_num + day_shift) % 7
-                            table.insert(new_cron, string.format("0 %d * * %d %s", utc_h, utc_dow, cmd))
+                            table.insert(new_cron, string.format("0 %d * * %d %s  #kids_wifi", utc_h, utc_dow, cmd))
                         end
                     end
                 end
