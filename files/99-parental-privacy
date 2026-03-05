@@ -141,7 +141,7 @@ if ! uci get firewall.kids_zone >/dev/null 2>&1; then
     uci set firewall.kids_zone.name='kids'
     uci set firewall.kids_zone.network='kids'
     uci set firewall.kids_zone.input='REJECT'
-    uci set firewall.kids_zone.forward='REJECT'
+	uci set firewall.kids_zone.forward='ACCEPT'
     uci set firewall.kids_zone.output='ACCEPT'
 
     # Allow DHCP
@@ -151,6 +151,49 @@ if ! uci get firewall.kids_zone >/dev/null 2>&1; then
     uci set firewall.kids_dhcp.proto='udp'
     uci set firewall.kids_dhcp.dest_port='67'
     uci set firewall.kids_dhcp.target='ACCEPT'
+
+	# Explicitly block SSH to the router
+	uci set firewall.kids_block_ssh_router=rule
+	uci set firewall.kids_block_ssh_router.name='Block-Kids-SSH-Router'
+	uci set firewall.kids_block_ssh_router.src='kids'
+	uci set firewall.kids_block_ssh_router.dest_port='22'
+	uci set firewall.kids_block_ssh_router.proto='tcp'
+	uci set firewall.kids_block_ssh_router.target='REJECT'
+
+	# Block HTTP/HTTPS access to the router management interface
+	uci set firewall.kids_block_web_ui=rule
+	uci set firewall.kids_block_web_ui.name='Block-Kids-Router-WebUI'
+	uci set firewall.kids_block_web_ui.src='kids'
+	uci set firewall.kids_block_web_ui.dest_port='80 443'
+	uci set firewall.kids_block_web_ui.proto='tcp'
+	uci set firewall.kids_block_web_ui.target='REJECT'
+
+	# Explicitly block SSH to the internet
+	uci set firewall.kids_block_ssh_wan=rule
+	uci set firewall.kids_block_ssh_wan.name='Block-Kids-SSH-WAN'
+	uci set firewall.kids_block_ssh_wan.src='kids'
+	uci set firewall.kids_block_ssh_wan.dest='wan'
+	uci set firewall.kids_block_ssh_wan.dest_port='22'
+	uci set firewall.kids_block_ssh_wan.proto='tcp'
+	uci set firewall.kids_block_ssh_wan.target='REJECT'
+
+	# Explicitly block SSH to the Lan
+	uci set firewall.kids_block_ssh_lan=rule
+	uci set firewall.kids_block_ssh_lan.name='Block-Kids-SSH-to-MainLAN'
+	uci set firewall.kids_block_ssh_lan.src='kids'
+	uci set firewall.kids_block_ssh_lan.dest='lan'
+	uci set firewall.kids_block_ssh_lan.dest_port='22'
+	uci set firewall.kids_block_ssh_lan.proto='tcp'
+	uci set firewall.kids_block_ssh_lan.target='REJECT'
+
+	# Explicitly block SSH to the kids
+	uci set firewall.kids_block_ssh_internal=rule
+	uci set firewall.kids_block_ssh_internal.name='Block-Kids-Internal-SSH'
+	uci set firewall.kids_block_ssh_internal.src='kids'
+	uci set firewall.kids_block_ssh_internal.dest='kids'
+	uci set firewall.kids_block_ssh_internal.dest_port='22'
+	uci set firewall.kids_block_ssh_internal.proto='tcp'
+	uci set firewall.kids_block_ssh_internal.target='REJECT'
 
     # Allow DNS to router
     uci set firewall.kids_dns=rule
@@ -199,6 +242,19 @@ if ! uci get firewall.kids_zone >/dev/null 2>&1; then
     uci set firewall.kids_upnp.proto='udp'
     uci set firewall.kids_upnp.dest_port='1900'
     uci set firewall.kids_upnp.target='ACCEPT'
+	
+	# 1. Allow Main LAN to reach Kids (Adults to Kids)
+	# This allows you to manage their devices or send files to them.
+	uci set firewall.lan_to_kids=forwarding
+	uci set firewall.lan_to_kids.src='lan'
+	uci set firewall.lan_to_kids.dest='kids'
+
+	# 2. Allow Kids to reach Main LAN (Kids to Adults)
+	# This allows them to use printers and join LAN games on your PC.
+	uci set firewall.kids_to_lan=forwarding
+	uci set firewall.kids_to_lan.src='kids'
+	uci set firewall.kids_to_lan.dest='lan'
+	
 fi
 
 # ── 5. Wireless ──────────────────────────────────────────────────────────────
