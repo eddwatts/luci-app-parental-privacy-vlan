@@ -18,17 +18,116 @@ define Package/luci-app-parental-privacy-vlan
   CATEGORY:=LuCI
   SUBMENU:=3. Applications
   TITLE:=Parental Privacy Wizard (VLAN edition)
-  DEPENDS:=+luci-base +nftables +rpcd +rpcd-mod-file +udp-broadcast-relay-redux +umdns
+  DEPENDS:=+luci-base +nftables +rpcd +udp-broadcast-relay-redux +umdns
   PKGARCH:=all
 endef
 
 define Package/luci-app-parental-privacy-vlan/description
-  Isolated Kids WiFi with DNS filtering, SafeSearch enforcement, and
-  time-based scheduling. VLAN edition — requires DSA hardware (OpenWrt 22.03+)
-  and mac80211 WiFi driver (ath9k/ath10k/ath11k/mt76).
-  Provides single-NAT isolation suitable for games consoles.
-  Includes broadcast relay (mDNS, SSDP, WSD, Steam, Minecraft Bedrock/Java,
-  Windows printing) so kids-VLAN devices can discover and use LAN services.
+  LuCI wizard and dashboard for a fully isolated Kids Network using a
+  dedicated VLAN on the main br-lan bridge (DSA/OpenWrt 22.03+ required).
+  mac80211 WiFi driver required (ath9k/ath10k/ath11k/mt76).
+  Broadcom brcmfmac is NOT supported — use the bridge edition instead.
+
+  NETWORK ISOLATION (VLAN)
+  - Automatically selects a free VLAN ID (tries 10, 20 … 100) by checking
+    both live kernel interfaces and UCI bridge-vlan config to avoid clashing
+    with existing VLANs (IPTV, VoIP, guest networks, etc.).
+  - Detects all physical DSA LAN ports dynamically and tags them — no
+    hardcoded port names.
+  - Creates a br-lan.<vlan> subinterface with a dedicated subnet in the
+    172.28.<vlan>.0/24 range (e.g. VLAN 10 → 172.28.10.0/24).
+  - Aborts cleanly with a log message if DSA is absent or swconfig is
+    detected, allowing the bridge edition to be used instead.
+  - Single-NAT: the WAN zone handles masquerade for all traffic; the kids
+    zone never double-NATs, giving consoles NAT Type 2 (Moderate) or better.
+
+  WIRELESS
+  - Creates VAPs on all detected bands: 2.4 GHz (WPA2), 5 GHz (WPA2), and
+    6 GHz (WPA3/SAE) — all sharing the same SSID and key.
+  - SSID defaults to <PrimarySSID>_Kids and is fully customisable.
+  - A strong random password is generated at install time via openssl or
+    /dev/urandom and stored in UCI for the dashboard to display.
+  - WiFi is intentionally left broadcasting at all times; internet access
+    is controlled by a firewall rule so devices stay associated and keep
+    their IPs even when the schedule blocks them.
+
+  FIREWALL
+  - Dedicated 'kids' zone with REJECT default for input and forward.
+  - Specific ACCEPT rules for DHCP (UDP 67), DNS (TCP/UDP 53), ICMP, and
+    UPnP (UDP 1900) so miniupnpd can serve consoles.
+  - DNS interception: all DNS queries (TCP/UDP port 53) are redirected back
+    to the router via DNAT for both IPv4 and IPv6, preventing bypass.
+  - Internet schedule block: installs a kids→wan REJECT rule at cron time
+    rather than toggling radios — no disruptive wifi restart, wired VLAN
+    devices blocked identically to wireless ones.
+
+  DNS FILTERING
+  - DHCP Option 6 pushes a family-safe DNS (default: Cloudflare 1.1.1.3 /
+    1.0.0.3 for Families) to every kids device.
+  - Configurable from the wizard; choices include Cloudflare Families,
+    CleanBrowsing Family, and OpenDNS FamilyShield.
+  - Primary LAN DNS is also configurable (Quad9, Cloudflare, AdGuard, ISP).
+
+  SAFESEARCH ENFORCEMENT
+  - Forces SafeSearch on Google (all regional domains), Bing, YouTube
+    (Restricted Mode), and DuckDuckGo via dnsmasq CNAME records.
+  - Works at DNS level — no DPI, no SSL inspection, no accounts needed.
+
+  DNS-OVER-HTTPS (DoH) BLOCKING
+  - Prevents browsers from silently bypassing the DNS filter using
+    encrypted DNS (DoH) on port 443.
+  - Blocks known DoH provider IPs (Cloudflare, Google, Quad9, AdGuard,
+    OpenDNS, CleanBrowsing) for both TCP and UDP (HTTP/3).
+  - Uses nftables sets on OpenWrt 22.03+ with an iptables fallback for
+    older kernels. IPv4 and IPv6 providers are both covered.
+
+  TIME SCHEDULING
+  - Per-day schedules with up to 4 allowed internet-access windows per day.
+  - Default schedule: Mon–Thu and Sun 06:00–20:00, Fri–Sat 06:00–21:00.
+  - Cron entries are written in UTC with automatic local→UTC conversion,
+    including half-hour timezone offset handling (+05:30, +05:45, etc.).
+  - 1-hour extend: a one-shot cron entry restores access immediately and
+    re-blocks exactly 60 minutes later, then self-removes from crontab.
+
+  HARDWARE BUTTON
+  - Assigns a physical router button (WPS, Reset, or custom GPIO pin) as
+    an instant kids WiFi / internet toggle via an OpenWrt hotplug script.
+  - No reboot required; takes effect on the next button press.
+
+  CROSS-VLAN BROADCAST RELAY
+  - Uses udp-broadcast-relay-redux and umdns so kids-VLAN devices can
+    discover and use services on the main LAN and vice versa.
+  - Narrow per-service firewall rules preserve the REJECT default posture.
+  - Services relayed (both directions unless noted):
+      mDNS / Bonjour   (UDP 5353 multicast) — AirPrint, AirPlay,
+                        Chromecast, Avahi, HomeKit, Apple TV
+      SSDP / UPnP      (UDP 1900 multicast) — DLNA, Chromecast, smart TVs
+      WSD              (UDP 3702 multicast) — Windows printer/scanner
+                        discovery (Web Services for Devices)
+      NetBIOS-NS       (UDP 137 broadcast)  — Windows LAN name resolution
+      IPP + RAW print  (TCP 631 / 9100)     — kids → LAN printer direct
+      Steam            (UDP/TCP 27036)      — Local Game Transfers and
+                        Remote Play Together
+      Minecraft Bedrock (UDP 19132 / TCP 19133) — console, mobile, and
+                        Windows 10 edition LAN world discovery
+      Minecraft Java    (UDP 4445 / TCP 25565) — Java Edition LAN world
+                        discovery and direct connect
+
+  SETUP WIZARD
+  - Three-step guided wizard: primary LAN DNS, kids WiFi + DNS, hardware
+    button. All applied sequentially via rpcd without a page reload.
+
+  DASHBOARD
+  - Single-page view showing: live device list (from DHCP leases), current
+    internet status, SSID/password, schedule, SafeSearch, DoH, and relay
+    toggles. Extend and Remove buttons included.
+
+  REQUIREMENTS
+    OpenWrt 22.03 or later (fw4/nftables)
+    DSA network switch (swconfig hardware NOT supported)
+    mac80211 WiFi driver (ath9k, ath10k, ath11k, mt76)
+    Packages: luci-base, rpcd, rpcd-mod-file, nftables,
+              udp-broadcast-relay-redux, umdns
 endef
 
 define Build/Compile
@@ -97,11 +196,8 @@ define Package/luci-app-parental-privacy-vlan/install
 		$(1)/usr/lib/lua/luci/controller/
 
 	# ── LuCI menu descriptors ─────────────────────────────────────────────────
-	$(INSTALL_DATA) $(PKG_BUILD_DIR)/files/luci-app-parental-privacy.json \
-		$(1)/usr/share/luci/menu.d/
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/files/luci-app-parental-privacy-vlan.json \
-		$(1)/usr/share/luci/menu.d/
-
+		$(1)/usr/share/rpcd/acl.d/
 	# ── ACL ───────────────────────────────────────────────────────────────────
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/files/luci-app-parental-privacy.json \
 		$(1)/usr/share/rpcd/acl.d/
