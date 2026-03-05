@@ -39,7 +39,7 @@ logger -t parental-privacy "Using VLAN ${KIDS_VLAN} (subnet 172.28.${KIDS_VLAN}.
 
 # Ensure installed scripts are executable
 mkdir -p "$INSTALL_DIR"
-for script in bandwidth.sh block-doh.sh; do
+for script in bandwidth.sh block-doh.sh broadcast-relay.sh; do
     [ -f "$INSTALL_DIR/$script" ] && chmod +x "$INSTALL_DIR/$script"
 done
 

@@ -1,0 +1,13 @@
+{
+	"admin/services/parental-privacy-vlan": {
+		"title": "Parental Privacy",
+		"action": {
+			"type": "view",
+			"path": "parental-privacy/vlan"
+		},
+		"depends": {
+			"acl": [ "luci-app-parental-privacy-vlan" ]
+		},
+		"order": 60
+	}
+}

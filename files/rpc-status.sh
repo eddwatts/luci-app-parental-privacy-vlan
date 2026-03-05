@@ -29,6 +29,13 @@ DISABLED=$(uci -q get wireless.kids_wifi.disabled)
 ACTIVE="false"
 [ "$DISABLED" = "0" ] && ACTIVE="true"
 
+# Internet access state is now determined by the schedule-block firewall rule,
+# not the WiFi radio state.  WiFi always stays on; the block rule controls
+# whether forwarded data traffic is allowed through.
+BLOCK_RULE=$(uci -q get firewall.kids_schedule_block 2>/dev/null)
+INTERNET_BLOCKED="false"
+[ -n "$BLOCK_RULE" ] && INTERNET_BLOCKED="true"
+
 SAFESEARCH=$(uci -q get parental_privacy.default.safesearch)
 SAFESEARCH=${SAFESEARCH:-1}
 SS_BOOL="true"
@@ -38,6 +45,11 @@ DOH=$(uci -q get parental_privacy.default.doh_block)
 DOH=${DOH:-1}
 DOH_BOOL="true"
 [ "$DOH" = "0" ] && DOH_BOOL="false"
+
+RELAY=$(uci -q get parental_privacy.default.broadcast_relay)
+RELAY=${RELAY:-0}
+RELAY_BOOL="false"
+[ "$RELAY" = "1" ] && RELAY_BOOL="true"
 
 # ── Button config ─────────────────────────────────────────────────────────────
 BTN0=$(uci -q get parental_privacy.default.button_btn0)
@@ -141,6 +153,7 @@ fi
 cat <<EOF
 {
     "active": $ACTIVE,
+    "internet_blocked": $INTERNET_BLOCKED,
     "ssid": "$CURRENT_SSID",
     "wifi_password": "$WIFI_PASSWORD",
     "primary_ssid": "$PRIMARY_SSID",
@@ -148,6 +161,7 @@ cat <<EOF
     "uptime": $UPTIME,
     "safesearch": $SS_BOOL,
     "doh_block": $DOH_BOOL,
+    "broadcast_relay": $RELAY_BOOL,
     "devices": [$DEVICES],
     "button_config": {
         "btn0": $BTN0_BOOL,

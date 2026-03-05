@@ -489,6 +489,46 @@ msgstr ""
 msgid "Configuration saved."
 msgstr ""
 
+#: dashboard.js
+msgid "Internet Access"
+msgstr ""
+
+#: dashboard.js
+msgid "Blocked"
+msgstr ""
+
+#: dashboard.js
+msgid "Allowed"
+msgstr ""
+
+#: dashboard.js
+msgid "Internet access blocked"
+msgstr ""
+
+#: dashboard.js
+msgid "A firewall rule is active. Devices are connected to WiFi and can resolve DNS, but all internet traffic is dropped."
+msgstr ""
+
+#: dashboard.js
+msgid "Internet access allowed"
+msgstr ""
+
+#: dashboard.js
+msgid "No schedule block is active. Traffic flows normally through the kids VLAN."
+msgstr ""
+
+#: dashboard.js
+msgid "How this schedule works"
+msgstr ""
+
+#: dashboard.js
+msgid "During blocked hours the WiFi remains on — devices stay connected and keep their IP address. A firewall rule silently drops all internet traffic from the kids network. DNS still resolves and pings still work, so devices show as connected but cannot load pages or apps. Wired devices on the kids VLAN are affected in exactly the same way."
+msgstr ""
+
+#: dashboard.js
+msgid "Outside the allowed windows the block rule is installed automatically via cron. The 'Grant extension' button removes it immediately for one hour, then reinstates it — no WiFi restart required at any point."
+msgstr ""
+
 #: wizard.htm:58
 msgid "Parental Privacy Wizard"
 msgstr ""

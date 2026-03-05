@@ -1,31 +1,24 @@
 #!/bin/sh
 # /usr/share/parental-privacy/rpc-extend.sh
 #
-# Forces Kids WiFi ON for 1 hour via a one-shot cron entry.
+# Forces Kids internet access ON for 1 hour via a one-shot cron entry.
 # Called by /usr/libexec/rpcd/parental-privacy when method is "extend".
+#
+# Rather than toggling the WiFi radios (which causes a disruptive restart),
+# this removes the schedule-block firewall rule so traffic flows freely,
+# then schedules a one-shot cron entry to re-enable the block in 1 hour.
 
 MARKER="#kids-extend"
 
-# ── Enable all bands immediately ──────────────────────────────────────────────
-uci set wireless.kids_wifi.disabled=0
-uci -q get wireless.kids_wifi_5g >/dev/null 2>&1 && \
-    uci set wireless.kids_wifi_5g.disabled=0
-uci -q get wireless.kids_wifi_6g >/dev/null 2>&1 && \
-    uci set wireless.kids_wifi_6g.disabled=0
-uci commit wireless
-wifi reload
+# ── Remove the block rule immediately (restore internet access) ───────────────
+/usr/share/parental-privacy/schedule-block.sh disable
 
-# ── Build one-shot disable command ───────────────────────────────────────────
-DISABLE_CMD="uci set wireless.kids_wifi.disabled=1"
-uci -q get wireless.kids_wifi_5g >/dev/null 2>&1 && \
-    DISABLE_CMD="$DISABLE_CMD && uci set wireless.kids_wifi_5g.disabled=1"
-uci -q get wireless.kids_wifi_6g >/dev/null 2>&1 && \
-    DISABLE_CMD="$DISABLE_CMD && uci set wireless.kids_wifi_6g.disabled=1"
-DISABLE_CMD="$DISABLE_CMD && uci commit wireless && wifi reload"
+# ── Build one-shot re-block command ──────────────────────────────────────────
+BLOCK_CMD="/usr/share/parental-privacy/schedule-block.sh enable"
 
 # Self-removing: after firing, deletes itself from crontab
 SELF_REMOVE="sed -i '/${MARKER}/d' /etc/crontabs/root && /etc/init.d/cron reload"
-FULL_CMD="$DISABLE_CMD && $SELF_REMOVE"
+FULL_CMD="$BLOCK_CMD && $SELF_REMOVE"
 
 # ── Calculate fire time (now + 1 hour) in UTC ─────────────────────────────────
 FIRE_TIME=$(date -u -d '+1 hour' '+%M %H %d %m' 2>/dev/null)
@@ -67,6 +60,6 @@ echo "$CRON_LINE" >> "$TMPFILE"
 mv "$TMPFILE" /etc/crontabs/root
 /etc/init.d/cron reload
 
-logger -t parental-privacy "1-hour extension active — WiFi will disable at ${FIRE_H}:${FIRE_MIN} UTC"
+logger -t parental-privacy "1-hour extension active — internet block will re-enable at ${FIRE_H}:${FIRE_MIN} UTC"
 
 echo '{"success":true,"message":"1-hour extension active"}'

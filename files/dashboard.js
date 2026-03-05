@@ -315,7 +315,46 @@ function updateScheduleStat() {
     }
 }
 
-// ── Status polling ────────────────────────────────────────────────────────────
+// ── Access status banner & stat card ─────────────────────────────────────────
+// Reads internet_blocked from the last status poll and updates both the
+// top-bar stat card and the banner inside the Schedule section.
+function updateAccessStat(internetBlocked) {
+    // ── Top-bar stat card ─────────────────────────────────────────────────────
+    const card  = $('stat-card-access');
+    const val   = $('stat-access');
+    if (card && val) {
+        if (internetBlocked) {
+            card.className = 'kn-stat-card kn-red';
+            val.className  = 'kn-stat-val kn-red';
+            val.textContent = _('Blocked');
+        } else {
+            card.className = 'kn-stat-card kn-green';
+            val.className  = 'kn-stat-val kn-green';
+            val.textContent = _('Allowed');
+        }
+    }
+
+    // ── Schedule section banner ───────────────────────────────────────────────
+    const banner = $('access-banner');
+    const icon   = $('access-banner-icon');
+    const title  = $('access-banner-title');
+    const detail = $('access-banner-detail');
+    if (!banner) return;
+
+    if (internetBlocked) {
+        banner.className     = 'kn-access-banner blocked';
+        icon.textContent     = '✖';
+        title.textContent    = _('Internet access blocked');
+        detail.textContent   = _('A firewall rule is active. Devices are connected to WiFi and can resolve DNS, but all internet traffic is dropped.');
+    } else {
+        banner.className     = 'kn-access-banner allowed';
+        icon.textContent     = '✔';
+        title.textContent    = _('Internet access allowed');
+        detail.textContent   = _('No schedule block is active. Traffic flows normally through the kids VLAN.');
+    }
+}
+
+
 async function updateStatus() {
     let data;
     try { data = await callStatus(); }
@@ -366,7 +405,7 @@ async function updateStatus() {
 
     updateDeviceList(data.devices || []);
     updateScheduleStat();
-}
+    updateAccessStat(!!data.internet_blocked);
 
 // ── Device list ───────────────────────────────────────────────────────────────
 const blocked = {};
@@ -598,7 +637,14 @@ return view.extend({
 .kn-stat-card.kn-green  { border-top-color:#5cb85c; }
 .kn-stat-card.kn-blue   { border-top-color:#337ab7; }
 .kn-stat-card.kn-orange { border-top-color:#f0ad4e; }
-.kn-stat-card.kn-purple { border-top-color:#9b59b6; }
+.kn-stat-card.kn-red    { border-top-color:#d9534f; }
+.kn-stat-val.kn-red    { color:#d9534f; }
+/* Schedule block status banner */
+.kn-access-banner { display:flex; align-items:flex-start; gap:.65rem; border-radius:4px; padding:.7rem 1rem; margin-bottom:.85rem; border:1px solid; font-size:.88rem; }
+.kn-access-banner.allowed  { background:#f0fff4; border-color:#5cb85c; color:#2d6a2d; }
+.kn-access-banner.blocked  { background:#fff5f5; border-color:#d9534f; color:#7a1f1f; }
+.kn-access-banner-icon { font-size:1.2rem; flex-shrink:0; margin-top:.05rem; }
+.kn-access-banner strong { display:block; margin-bottom:.15rem; }
 .kn-stat-val { font-size:1.4rem; font-weight:600; }
 .kn-stat-val.kn-green  { color:#5cb85c; }
 .kn-stat-val.kn-blue   { color:#337ab7; }
@@ -708,6 +754,10 @@ ${css}
     <div class="kn-stat-card kn-purple">
       <div class="kn-stat-val kn-purple" id="stat-schedule" style="font-size:.95rem">—</div>
       <div class="kn-stat-key">${_('Schedule')}</div>
+    </div>
+    <div class="kn-stat-card" id="stat-card-access">
+      <div class="kn-stat-val" id="stat-access" style="font-size:.95rem">—</div>
+      <div class="kn-stat-key">${_('Internet Access')}</div>
     </div>
   </div>
 </div>
@@ -862,6 +912,23 @@ ${css}
     <span class="cbi-section-descr">${_('Up to 4 allowed time ranges per day')}</span>
   </h3>
   <div class="cbi-section-node">
+
+    <!-- Live access status banner — updated by updateAccessStat() -->
+    <div class="kn-access-banner allowed" id="access-banner">
+      <div class="kn-access-banner-icon" id="access-banner-icon">✔</div>
+      <div>
+        <strong id="access-banner-title">${_('Internet access allowed')}</strong>
+        <span id="access-banner-detail"></span>
+      </div>
+    </div>
+
+    <!-- How the schedule works -->
+    <div class="alert alert-info" style="font-size:.85rem; margin-bottom:.85rem;">
+      <strong>${_('How this schedule works')}</strong><br>
+      ${_('During blocked hours the WiFi remains on — devices stay connected and keep their IP address. A firewall rule silently drops all internet traffic from the kids network. DNS still resolves and pings still work, so devices show as connected but cannot load pages or apps. Wired devices on the kids VLAN are affected in exactly the same way.')}<br><br>
+      ${_('Outside the allowed windows the block rule is installed automatically via cron. The \'Grant extension\' button removes it immediately for one hour, then reinstates it — no WiFi restart required at any point.')}
+    </div>
+
     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem; margin-bottom:.75rem;">
       <span class="cbi-value-description">${_('Leave a day empty for unrestricted access. Ranges must not overlap.')}</span>
       <select class="cbi-input-select" id="schedule-preset" onchange="applyPreset(this.value)" style="max-width:200px">
@@ -981,7 +1048,7 @@ ${css}
             toggleMaster, pickRadio, pickDNS, updateCustomPreview,
             useSuggestedSSID, togglePanel, applyPreset, addRange,
             removeRange, updateRange, grantExtension, saveAll,
-            removeNetwork, markUnsaved, toggleBlock
+            removeNetwork, markUnsaved, toggleBlock, updateAccessStat
         });
     }
 });

@@ -93,7 +93,13 @@ get_tz_offset() {
 
 # ── Schedule: ranges → cron entries ──────────────────────────────────────────
 # Takes day name and a space-separated list of ranges, appends cron lines.
-# Each range produces two cron entries: one to enable, one to disable.
+# Each range produces two cron entries: one to enable (block), one to disable.
+#
+# The schedule no longer toggles the WiFi radios.  Instead it calls
+# schedule-block.sh which installs/removes a firewall REJECT rule for the
+# kids zone.  WiFi stays up, devices keep their IPs, DNS resolves — but all
+# forwarded data traffic is blocked.  Wired kids-VLAN devices are blocked
+# identically to WiFi ones, and there is no disruptive wifi restart.
 write_cron_for_day() {
     local day="$1"
     local ranges="$2"
@@ -108,19 +114,11 @@ write_cron_for_day() {
         *) return ;;
     esac
 
+    # "enable" = start of allowed window → remove block
+    # "disable" = end of allowed window  → install block
     local enable_cmd disable_cmd
-    enable_cmd="uci set wireless.kids_wifi.disabled=0"
-    disable_cmd="uci set wireless.kids_wifi.disabled=1"
-    uci -q get wireless.kids_wifi_5g >/dev/null 2>&1 && {
-        enable_cmd="$enable_cmd && uci set wireless.kids_wifi_5g.disabled=0"
-        disable_cmd="$disable_cmd && uci set wireless.kids_wifi_5g.disabled=1"
-    }
-    uci -q get wireless.kids_wifi_6g >/dev/null 2>&1 && {
-        enable_cmd="$enable_cmd && uci set wireless.kids_wifi_6g.disabled=0"
-        disable_cmd="$disable_cmd && uci set wireless.kids_wifi_6g.disabled=1"
-    }
-    enable_cmd="$enable_cmd && uci commit wireless && wifi reload"
-    disable_cmd="$disable_cmd && uci commit wireless && wifi reload"
+    enable_cmd="/usr/share/parental-privacy/schedule-block.sh disable"
+    disable_cmd="/usr/share/parental-privacy/schedule-block.sh enable"
 
     for range in $ranges; do
         local start end
@@ -226,10 +224,16 @@ fi
 # ═════════════════════════════════════════════════════════════════════════════
 
 # ── Master toggle ─────────────────────────────────────────────────────────────
+# Toggles internet access for the kids zone via the firewall block rule.
+# The WiFi radios remain broadcasting — devices stay associated, keep their
+# IPs, and DNS still resolves.  Only forwarded data traffic is blocked.
 MASTER=$(json_bool '@.master')
 [ -n "$MASTER" ] && {
-    DISABLED=$([ "$MASTER" = "1" ] && echo "0" || echo "1")
-    set_wifi "disabled" "$DISABLED"
+    if [ "$MASTER" = "1" ]; then
+        /usr/share/parental-privacy/schedule-block.sh disable
+    else
+        /usr/share/parental-privacy/schedule-block.sh enable
+    fi
 }
 
 # ── SSID ──────────────────────────────────────────────────────────────────────
@@ -267,6 +271,14 @@ DOH=$(json_bool '@.doh')
     uci set parental_privacy.default.doh_block="$DOH"
     [ "$DOH" = "1" ] && /usr/share/parental-privacy/block-doh.sh enable \
                      || /usr/share/parental-privacy/block-doh.sh disable
+}
+
+# ── Broadcast relay (cross-VLAN mDNS/SSDP/gaming/printing) ───────────────────
+RELAY=$(json_bool '@.broadcast_relay')
+[ -n "$RELAY" ] && {
+    uci set parental_privacy.default.broadcast_relay="$RELAY"
+    [ "$RELAY" = "1" ] && /usr/share/parental-privacy/broadcast-relay.sh enable \
+                       || /usr/share/parental-privacy/broadcast-relay.sh disable
 }
 
 # ── Button config ─────────────────────────────────────────────────────────────
