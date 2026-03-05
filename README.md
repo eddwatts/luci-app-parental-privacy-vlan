@@ -181,7 +181,6 @@ make package/luci-app-parental-privacy-vlan/compile
 | `kids_network.htm` | `/usr/lib/lua/luci/view/parental_privacy/` |
 | `wizard.htm` | `/usr/lib/lua/luci/view/parental_privacy/` |
 | `luci-app-parental-privacy-vlan.json` | `/usr/share/rpcd/acl.d/` |
-| `bandwidth.sh` | `/usr/share/parental-privacy/` |
 | `block-doh.sh` | `/usr/share/parental-privacy/` |
 | `99-parental-privacy` | `/etc/uci-defaults/` (runs once on first boot) |
 | `30-kids-wifi` | `/etc/hotplug.d/button/` |
