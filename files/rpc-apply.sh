@@ -13,6 +13,16 @@
 
 read -r INPUT
 
+# ── Unwrap the 'data' envelope added by rpc.declare params:['data'] ───────────
+# LuCI's rpc.declare with params:['data'] wraps every callApply(payload) call
+# as {"data": payload} before sending it to rpcd on stdin.  We unwrap it here
+# once so every json_get/@.field call below works on the real payload directly,
+# with no path changes needed anywhere else in this script.
+# The fallback (keep INPUT as-is) means direct CLI testing still works:
+#   echo '{"ssid":"Test","password":"testpass1"}' | ./rpc-apply.sh
+_unwrapped=$(echo "$INPUT" | jsonfilter -e '@.data' 2>/dev/null)
+[ -n "$_unwrapped" ] && INPUT="$_unwrapped"
+
 # ── JSON helpers ──────────────────────────────────────────────────────────────
 # Minimal pure-sh JSON field extraction.
 # Uses jsonfilter (available on all OpenWrt 22.03+ builds).
@@ -69,6 +79,23 @@ set_wifi() {
         uci -q get wireless.kids_wifi_6g >/dev/null 2>&1 && \
             uci set wireless.kids_wifi_6g.encryption="sae"
     fi
+}
+
+# ── DNS DHCP option builder ───────────────────────────────────────────────────
+# Builds the full DHCP Option 6 string with primary + secondary server.
+# Single-IP saves (e.g. custom DNS) get only one server — that's intentional.
+# Known family/secure providers always have a secondary for resilience.
+dns_option() {
+    local primary="$1"
+    case "$primary" in
+        1.1.1.3)         echo "6,1.1.1.3,1.0.0.3"           ;;  # Cloudflare Families
+        185.228.168.9)   echo "6,185.228.168.9,185.228.169.9" ;;  # CleanBrowsing Family
+        208.67.222.123)  echo "6,208.67.222.123,208.67.220.123" ;; # OpenDNS FamilyShield
+        9.9.9.11)        echo "6,9.9.9.11,149.112.112.11"    ;;  # Quad9 Secure
+        94.140.14.15)    echo "6,94.140.14.15,94.140.15.16"  ;;  # AdGuard Family
+        # Primary-only fallback for custom IPs
+        *)               echo "6,$primary"                    ;;
+    esac
 }
 
 # ── Read stage ────────────────────────────────────────────────────────────────
@@ -189,7 +216,7 @@ if [ "$STAGE" = "kids" ]; then
     set_wifi "encryption" "psk2"
     set_wifi "disabled"   "0"
 
-    [ -n "$DNS" ] && uci set dhcp.kids.dhcp_option="6,$DNS"
+    [ -n "$DNS" ] && uci set dhcp.kids.dhcp_option="$(dns_option "$DNS")"
 
     if [ -n "$SS" ]; then
         uci set parental_privacy.default.safesearch="$SS"
@@ -205,7 +232,10 @@ if [ "$STAGE" = "kids" ]; then
     uci commit wireless
     uci commit dhcp
     uci commit parental_privacy
-    wifi reload
+    # WiFi credentials always change in the wizard — reload required.
+    # Backgrounded so the HTTP response returns immediately; the reload
+    # completes within a few seconds without holding the connection open.
+    wifi reload >/dev/null 2>&1 &
     ok; exit 0
 fi
 
@@ -223,6 +253,14 @@ fi
 # FLAT SAVE — dashboard save (no stage)
 # ═════════════════════════════════════════════════════════════════════════════
 
+# ── WiFi change tracking — capture current values before any modifications ────
+# wifi reload is disruptive (5-15s, drops all associated clients briefly).
+# We only trigger it if SSID or password actually changed — not for DNS,
+# schedule, SafeSearch, DoH, button config, or master toggle changes.
+PREV_SSID=$(uci -q get wireless.kids_wifi.ssid)
+PREV_KEY=$(uci -q get wireless.kids_wifi.key)
+WIFI_CHANGED=0
+
 # ── Master toggle ─────────────────────────────────────────────────────────────
 # Toggles internet access for the kids zone via the firewall block rule.
 # The WiFi radios remain broadcasting — devices stay associated, keep their
@@ -238,15 +276,21 @@ MASTER=$(json_bool '@.master')
 
 # ── SSID ──────────────────────────────────────────────────────────────────────
 SSID=$(json_get '@.ssid')
-[ -n "$SSID" ] && set_wifi "ssid" "$SSID"
+if [ -n "$SSID" ] && [ "$SSID" != "$PREV_SSID" ]; then
+    set_wifi "ssid" "$SSID"
+    WIFI_CHANGED=1
+fi
 
 # ── Password ──────────────────────────────────────────────────────────────────
 PASS=$(json_get '@.password')
 if [ -n "$PASS" ]; then
     [ ${#PASS} -lt 8 ] && fail "password must be at least 8 characters"
-    set_wifi "encryption" "psk2"
-    set_wifi "key"        "$PASS"
-    uci set parental_privacy.default.wifi_password="$PASS"
+    if [ "$PASS" != "$PREV_KEY" ]; then
+        set_wifi "encryption" "psk2"
+        set_wifi "key"        "$PASS"
+        uci set parental_privacy.default.wifi_password="$PASS"
+        WIFI_CHANGED=1
+    fi
 fi
 
 # ── Client isolation ──────────────────────────────────────────────────────────
@@ -255,7 +299,7 @@ ISOLATE=$(json_bool '@.isolate')
 
 # ── DNS ───────────────────────────────────────────────────────────────────────
 DNS=$(json_get '@.dns')
-[ -n "$DNS" ] && uci set dhcp.kids.dhcp_option="6,$DNS"
+[ -n "$DNS" ] && uci set dhcp.kids.dhcp_option="$(dns_option "$DNS")"
 
 # ── SafeSearch ────────────────────────────────────────────────────────────────
 SS=$(json_bool '@.safesearch')
@@ -361,6 +405,10 @@ uci commit parental_privacy
 /etc/init.d/firewall reload
 /etc/init.d/dnsmasq reload
 /etc/init.d/parental-privacy restart
-wifi reload
+
+# Only reload WiFi if SSID or password actually changed.
+# Every other setting (DNS, schedule, SafeSearch, DoH, buttons, master toggle)
+# takes effect without touching the radio — no client disconnections needed.
+[ "$WIFI_CHANGED" = "1" ] && wifi reload >/dev/null 2>&1 &
 
 ok

@@ -1,7 +1,9 @@
-Package: luci-app-parental-privacy
-Version: 1.0.0
-Depends: luci-base, nftables
-DEPENDS: luci-base, nftables ,rpcd ,udp-broadcast-relay-redux ,umdns
+Package: luci-app-parental-privacy-vlan
+Version: 1.2.0
+Depends: luci-base, nftables, rpcd, rpcd-mod-rpcsys, udp-broadcast-relay-redux, umdns
 Architecture: all
-Maintainer: Edward Watts
-Description: A one-click Parental Privacy Wizard for OpenWrt.
+Maintainer: Edward Watts <edd@eddtech.co.uk>
+Description: LuCI wizard and dashboard for a fully isolated Kids Network using a
+ dedicated VLAN on the main br-lan bridge (DSA/OpenWrt 22.03+ required).
+ mac80211 WiFi driver required (ath9k/ath10k/ath11k/mt76).
+ Broadcom brcmfmac is NOT supported — use the bridge edition instead.

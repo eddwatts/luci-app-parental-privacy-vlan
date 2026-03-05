@@ -406,7 +406,7 @@ async function updateStatus() {
     updateDeviceList(data.devices || []);
     updateScheduleStat();
     updateAccessStat(!!data.internet_blocked);
-
+}
 // ── Device list ───────────────────────────────────────────────────────────────
 const blocked = {};
 

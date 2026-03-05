@@ -14,12 +14,26 @@ SCRIPTS="/usr/share/parental-privacy"
 
 case "$1" in
     list)
-        # Advertise available methods and their expected input types.
-        # Empty objects mean the method accepts (and ignores) any input.
+        # Advertise available methods to rpcd.
+        #
+        # All methods use empty objects {} — no typed parameter declarations.
+        #
+        # Why this matters for 'apply':
+        #   If you declare typed params like {"stage":"string","ssid":"string"},
+        #   rpcd acts as a filter: it extracts only those named keys from the
+        #   incoming payload and discards everything else before passing it to
+        #   the script on stdin.  Our apply payload is a free-form object with
+        #   ~15 keys (ssid, password, dns, schedule, button_config, etc.) that
+        #   varies by context — using typed params would mean rpc-apply.sh
+        #   receives a near-empty object and every json_get call returns null.
+        #
+        #   With {}, rpcd passes the entire raw JSON payload through on stdin
+        #   unchanged, so `read -r INPUT` in rpc-apply.sh captures the full
+        #   object and all json_get/@.field lookups work correctly.
         cat <<'EOF'
 {
     "status":  {},
-    "apply":   { "stage": "string", "data": "string" },
+    "apply":   {},
     "extend":  {},
     "remove":  {}
 }

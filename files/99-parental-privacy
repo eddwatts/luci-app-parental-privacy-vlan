@@ -100,7 +100,7 @@ if ! uci get network.kids_vlan >/dev/null 2>&1; then
 
     # Tag all physical LAN ports. Detect them dynamically rather than hardcoding.
     # DSA ports appear as lanN or ethN members of br-lan.
-    for port in $(bridge link show | grep 'master br-lan' | awk '{print $2}' | tr -d ':'); do
+    for port in $(bridge link show | grep 'master br-lan' | awk '{print $2}' | tr -d ':' | grep -v '^cpu\|^eth0$'); do
         uci add_list network.kids_vlan.ports="${port}:t"
     done
 fi
@@ -199,8 +199,14 @@ fi
 # mac80211 drivers handle VLAN tagging on the VAP automatically.
 # NOTE: brcmfmac (Broadcom) does NOT support this — use the bridge edition.
 
+# Radio detection: prefer the OpenWrt 22.03+ 'band=' key; fall back to
+# 'hwmode=' for 21.02 compatibility.  hwmode='11g' = 2.4GHz only.
+# hwmode='11a' is ambiguous (used for 5GHz a/n/ac/ax) so we match band='5g'
+# first, then fall back to hwmode='11a' only if band= is absent.
+
 # 2.4 GHz
-RADIO_2G=$(uci show wireless | grep -E "hwmode='11g'|band='2g'" | head -n1 | cut -d. -f2)
+RADIO_2G=$(uci show wireless | grep "band='2g'" | head -n1 | cut -d. -f2)
+[ -z "$RADIO_2G" ] && RADIO_2G=$(uci show wireless | grep "hwmode='11g'" | head -n1 | cut -d. -f2)
 [ -z "$RADIO_2G" ] && RADIO_2G="radio0"
 if ! uci get wireless.kids_wifi >/dev/null 2>&1; then
     uci set wireless.kids_wifi=wifi-iface
@@ -214,7 +220,8 @@ if ! uci get wireless.kids_wifi >/dev/null 2>&1; then
 fi
 
 # 5 GHz (if present)
-RADIO_5G=$(uci show wireless | grep -E "hwmode='11a'|band='5g'" | head -n1 | cut -d. -f2)
+RADIO_5G=$(uci show wireless | grep "band='5g'" | head -n1 | cut -d. -f2)
+[ -z "$RADIO_5G" ] && RADIO_5G=$(uci show wireless | grep "hwmode='11a'" | head -n1 | cut -d. -f2)
 if [ -n "$RADIO_5G" ]; then
     if ! uci get wireless.kids_wifi_5g >/dev/null 2>&1; then
         uci set wireless.kids_wifi_5g=wifi-iface
@@ -253,13 +260,33 @@ uci commit dhcp
 uci commit firewall
 uci commit wireless
 
+# Bring up the network first — creates br-lan.<vlan> and the kids interface.
 /etc/init.d/network restart
-sleep 3
+
+# Wait for the kids interface to fully come up before starting dependent
+# services.  dnsmasq needs to bind on the kids IP; firewall needs the zone
+# interface to exist.  ubus wait_for blocks until the ubus object appears,
+# with a 30-second timeout — reliable on any hardware, no guessing on timing.
+# Falls back to a sleep if ubus itself isn't ready (rare early-boot edge case).
+if ! ubus wait_for network.interface.kids 2>/dev/null; then
+    logger -t parental-privacy "ubus wait_for timed out — falling back to sleep"
+    sleep 8
+fi
+
+# dnsmasq: restart (not reload) so it picks up the new kids DHCP pool and
+# binds fresh on the kids interface IP.
 /etc/init.d/dnsmasq restart
-sleep 1
+
+# firewall: restart so fw4 rebuilds all chains including the new kids zone.
+# reload is not sufficient — the zone didn't exist before this script ran.
 /etc/init.d/firewall restart
-sleep 1
-wifi reload
+
+# WiFi: backgrounded — VAPs come up asynchronously, no need to block here.
+# The VAPs start disabled so no clients connect until the wizard enables them.
+wifi reload >/dev/null 2>&1 &
+
+# parental-privacy: start after dnsmasq and firewall are ready, since the
+# init script applies SafeSearch (dnsmasq) and DoH blocking (nftables).
 /etc/init.d/parental-privacy start
 
 logger -t parental-privacy "VLAN edition setup complete. Service parental-privacy is now active."
