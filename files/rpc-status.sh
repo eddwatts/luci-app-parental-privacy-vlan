@@ -15,8 +15,43 @@ VLAN_ID=$(uci -q get parental_privacy.default.vlan_id)
 VLAN_ID=${VLAN_ID:-10}
 KIDS_SUBNET="172.28.${VLAN_ID}."
 
-PRIMARY_SSID=$(uci -q get wireless.@wifi-iface[0].ssid)
-PRIMARY_SSID=${PRIMARY_SSID:-OpenWrt}
+# Find the true primary SSID by skipping guest/kids/disabled/non-AP VAPs.
+# Falls back to @wifi-iface[0] if nothing better is found.
+pick_primary_ssid() {
+    local iface ssid mode disabled found_ssid=""
+    local iface_list
+    iface_list=$(uci show wireless 2>/dev/null \
+        | grep "=wifi-iface" \
+        | sed "s/=wifi-iface//;s/wireless\.//" )
+
+    for iface in $iface_list; do
+        case "$iface" in kids_wifi*) continue ;; esac
+
+        mode=$(uci -q get wireless.${iface}.mode)
+        [ "$mode" != "ap" ] && continue
+
+        disabled=$(uci -q get wireless.${iface}.disabled)
+        [ "$disabled" = "1" ] && continue
+
+        ssid=$(uci -q get wireless.${iface}.ssid 2>/dev/null)
+        [ -z "$ssid" ] && continue
+
+        echo "$ssid" | grep -qiE \
+            'guest|kids|child|iot|visitor|corp|office|_kids$|_guest$' \
+            && continue
+
+        found_ssid="$ssid"
+        break
+    done
+
+    if [ -z "$found_ssid" ]; then
+        found_ssid=$(uci -q get wireless.@wifi-iface[0].ssid 2>/dev/null)
+    fi
+
+    echo "${found_ssid:-OpenWrt}"
+}
+
+PRIMARY_SSID=$(pick_primary_ssid)
 SUGGESTED_SSID="${PRIMARY_SSID}_Kids"
 
 CURRENT_SSID=$(uci -q get wireless.kids_wifi.ssid)
@@ -50,6 +85,38 @@ RELAY=$(uci -q get parental_privacy.default.broadcast_relay)
 RELAY=${RELAY:-1}
 RELAY_BOOL="true"
 [ "$RELAY" = "0" ] && RELAY_BOOL="false"
+
+YOUTUBE_MODE=$(uci -q get parental_privacy.default.youtube_mode)
+YOUTUBE_MODE=${YOUTUBE_MODE:-moderate}
+
+BLOCK_SEARCH=$(uci -q get parental_privacy.default.block_search)
+BLOCK_SEARCH=${BLOCK_SEARCH:-0}
+BLOCK_SEARCH_BOOL="false"
+[ "$BLOCK_SEARCH" = "1" ] && BLOCK_SEARCH_BOOL="true"
+
+# ── Bridge mode detection ─────────────────────────────────────────────────────
+BRIDGE_MODE=$(uci -q get parental_privacy.default.bridge_mode)
+BRIDGE_MODE=${BRIDGE_MODE:-0}
+BRIDGE_MODE_BOOL="false"
+[ "$BRIDGE_MODE" = "1" ] && BRIDGE_MODE_BOOL="true"
+
+# ── LAN port lists (bridge mode only) ────────────────────────────────────────
+# kids_ports: ports currently assigned to br-kids
+# available_ports: LAN ports on br-lan that could be moved to kids
+KIDS_PORTS=""
+AVAILABLE_PORTS=""
+if [ "$BRIDGE_MODE" = "1" ]; then
+    # Ports already in br-kids
+    for p in $(bridge link show 2>/dev/null | grep "master br-kids" | awk '{print $2}' | tr -d ':'); do
+        [ -z "$KIDS_PORTS" ] && KIDS_PORTS="\"$p\"" || KIDS_PORTS="$KIDS_PORTS,\"$p\""
+    done
+    # Physical LAN ports on br-lan (exclude CPU/uplink ports)
+    LAN_BR=$(uci -q get network.lan.device 2>/dev/null)
+    LAN_BR=${LAN_BR:-br-lan}
+    for p in $(bridge link show 2>/dev/null | grep "master ${LAN_BR}" | awk '{print $2}' | tr -d ':' | grep -vE '^(cpu|eth0|@)'); do
+        [ -z "$AVAILABLE_PORTS" ] && AVAILABLE_PORTS="\"$p\"" || AVAILABLE_PORTS="$AVAILABLE_PORTS,\"$p\""
+    done
+fi
 
 # ── Button config ─────────────────────────────────────────────────────────────
 BTN0=$(uci -q get parental_privacy.default.button_btn0)
@@ -162,6 +229,11 @@ cat <<EOF
     "safesearch": $SS_BOOL,
     "doh_block": $DOH_BOOL,
     "broadcast_relay": $RELAY_BOOL,
+    "youtube_mode": "$YOUTUBE_MODE",
+    "block_search": $BLOCK_SEARCH_BOOL,
+    "bridge_mode": $BRIDGE_MODE_BOOL,
+    "kids_ports": [$KIDS_PORTS],
+    "available_ports": [$AVAILABLE_PORTS],
     "devices": [$DEVICES],
     "button_config": {
         "btn0": $BTN0_BOOL,

@@ -1,14 +1,19 @@
 #!/bin/sh
 # /usr/share/parental-privacy/safesearch.sh
 #
-# Enforces SafeSearch on Google, Bing, and YouTube via dnsmasq CNAME/address
-# records. Works by pointing search domains at the provider's own SafeSearch
-# enforcement IPs — no DPI or SSL inspection required.
+# Enforces SafeSearch on Google, Bing, YouTube, DuckDuckGo, Brave, and
+# Pixabay via dnsmasq CNAME/address records. Works by pointing search domains
+# at the provider's own SafeSearch enforcement IPs — no DPI or SSL inspection
+# required.
 #
 # Usage:
 #   safesearch.sh enable   — write rules and restart dnsmasq
 #   safesearch.sh disable  — remove rules and restart dnsmasq
 #   safesearch.sh status   — print current state
+#
+# UCI options read:
+#   parental_privacy.default.youtube_mode   moderate|strict  (default: moderate)
+#   parental_privacy.default.block_search   0|1              (default: 0)
 
 DNSMASQ_CONF="/etc/dnsmasq.d/safesearch.conf"
 
@@ -69,10 +74,16 @@ bing.com
 "
 
 # ── YouTube ──────────────────────────────────────────────────────────────────
-# restrict.youtube.com = Moderate restriction (blocks most adult content)
-# restrictmd.youtube.com = Strict restriction (supervised mode, very locked down)
+# restrict.youtube.com    = Moderate restriction (blocks most adult content)
+# restrictmd.youtube.com  = Strict restriction (supervised mode, very locked down)
 # Moderate is the better default — strict blocks too much legitimate content.
-YOUTUBE_SAFE_HOST="restrict.youtube.com"
+# Read from UCI: parental_privacy.default.youtube_mode (moderate|strict)
+YOUTUBE_MODE=$(uci -q get parental_privacy.default.youtube_mode)
+YOUTUBE_MODE=${YOUTUBE_MODE:-moderate}
+case "$YOUTUBE_MODE" in
+    strict)   YOUTUBE_SAFE_HOST="restrictmd.youtube.com" ;;
+    *)        YOUTUBE_SAFE_HOST="restrict.youtube.com"   ;;
+esac
 YOUTUBE_DOMAINS="
 www.youtube.com
 m.youtube.com
@@ -86,6 +97,64 @@ DUCKDUCKGO_SAFE_HOST="safe.duckduckgo.com"
 DUCKDUCKGO_DOMAINS="
 duckduckgo.com
 www.duckduckgo.com
+"
+
+# ── Brave Search ──────────────────────────────────────────────────────────────
+# forcesafe.search.brave.com enforces SafeSearch at the server level.
+# The host-record ensures the enforcement host resolves correctly; the CNAME
+# redirects all Brave Search queries through it.
+BRAVE_SAFE_HOST="forcesafe.search.brave.com"
+BRAVE_SAFE_IP="108.138.246.75"
+BRAVE_DOMAINS="
+search.brave.com
+"
+
+# ── Pixabay ───────────────────────────────────────────────────────────────────
+# Pixabay uses CNAME-based SafeSearch enforcement.
+PIXABAY_SAFE_HOST="safesearch.pixabay.com"
+PIXABAY_DOMAINS="
+pixabay.com
+www.pixabay.com
+"
+
+# ── Block Uncontrolled Search Engines ────────────────────────────────────────
+# When enabled, search engines that have no SafeSearch enforcement mechanism
+# (or whose mechanism cannot be enforced at DNS level) are blocked entirely.
+# This prevents children from bypassing SafeSearch by switching to an
+# obscure engine. Controlled by UCI:
+#   parental_privacy.default.block_search  0|1  (default: 0)
+BLOCK_SEARCH=$(uci -q get parental_privacy.default.block_search)
+BLOCK_SEARCH=${BLOCK_SEARCH:-0}
+
+# Engines that cannot enforce SafeSearch via DNS CNAME/address tricks.
+# Excludes Google, Bing, DuckDuckGo, Brave, and Yahoo (which uses Bing).
+UNCONTROLLED_SEARCH_ENGINES="
+search.yahoo.co.jp
+uk.search.yahoo.com
+fr.search.yahoo.com
+de.search.yahoo.com
+search.aol.com
+search.lycos.com
+www.ask.com
+www.dogpile.com
+www.startpage.com
+www.ecosia.org
+www.qwant.com
+search.yahoo.com
+www.yandex.com
+yandex.ru
+yandex.com
+www.baidu.com
+baidu.com
+search.seznam.cz
+www.naver.com
+search.naver.com
+www.sogou.com
+www.so.com
+www.wolframalpha.com
+www.metacrawler.com
+www.webcrawler.com
+search.yahoo.fr
 "
 
 write_conf() {
@@ -109,8 +178,8 @@ EOF
     done
     echo "" >> "$DNSMASQ_CONF"
 
-    # YouTube
-    echo "# YouTube Restricted Mode" >> "$DNSMASQ_CONF"
+    # YouTube — mode is moderate or strict, selected via YOUTUBE_MODE UCI option
+    echo "# YouTube Restricted Mode (${YOUTUBE_MODE})" >> "$DNSMASQ_CONF"
     for domain in $YOUTUBE_DOMAINS; do
         echo "cname=${domain},${YOUTUBE_SAFE_HOST}" >> "$DNSMASQ_CONF"
     done
@@ -122,12 +191,37 @@ EOF
         echo "cname=${domain},${DUCKDUCKGO_SAFE_HOST}" >> "$DNSMASQ_CONF"
     done
     echo "" >> "$DNSMASQ_CONF"
+
+    # Brave Search
+    echo "# Brave Search SafeSearch" >> "$DNSMASQ_CONF"
+    # host-record resolves the enforcement host to its IP
+    echo "host-record=${BRAVE_SAFE_HOST},${BRAVE_SAFE_IP}" >> "$DNSMASQ_CONF"
+    for domain in $BRAVE_DOMAINS; do
+        echo "cname=${domain},${BRAVE_SAFE_HOST}" >> "$DNSMASQ_CONF"
+    done
+    echo "" >> "$DNSMASQ_CONF"
+
+    # Pixabay
+    echo "# Pixabay SafeSearch" >> "$DNSMASQ_CONF"
+    for domain in $PIXABAY_DOMAINS; do
+        echo "cname=${domain},${PIXABAY_SAFE_HOST}" >> "$DNSMASQ_CONF"
+    done
+    echo "" >> "$DNSMASQ_CONF"
+
+    # Block uncontrolled search engines (optional)
+    if [ "$BLOCK_SEARCH" = "1" ]; then
+        echo "# Block uncontrolled search engines" >> "$DNSMASQ_CONF"
+        for domain in $UNCONTROLLED_SEARCH_ENGINES; do
+            echo "address=/${domain}/" >> "$DNSMASQ_CONF"
+        done
+        echo "" >> "$DNSMASQ_CONF"
+    fi
 }
 
 enable_safesearch() {
     write_conf
     /etc/init.d/dnsmasq restart
-    logger -t parental-privacy "SafeSearch enabled (Google, Bing, YouTube restricted mode)"
+    logger -t parental-privacy "SafeSearch enabled (Google, Bing, YouTube ${YOUTUBE_MODE}, DuckDuckGo, Brave, Pixabay; block_search=${BLOCK_SEARCH})"
 }
 
 disable_safesearch() {

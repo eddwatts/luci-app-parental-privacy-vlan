@@ -20,22 +20,30 @@ const callApply = rpc.declare({
 });
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let primaryDNS = 'isp';
-let kidsDNS    = '1.1.1.3';
+let primaryDNS  = 'isp';
+let kidsDNS     = '1.1.1.3';
+let bridgeMode  = false;
+let availPorts  = [];
+let selectedPorts = [];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
 
 function goStep(n) {
-    [1, 2, 3].forEach(i => {
-        $('step' + i).classList.remove('active');
-        const t = $('tab' + i);
+    // Steps 1-3 always exist; step 4 (port picker) only shown in bridge mode
+    const maxStep = bridgeMode ? 4 : 3;
+    const steps = bridgeMode ? [1,2,3,4] : [1,2,3];
+    steps.forEach(i => {
+        const s = $('step' + i); if (s) s.classList.remove('active');
+        const t = $('tab'  + i); if (!t) return;
         t.classList.remove('active');
         if (i < n) t.classList.add('done');
         else t.classList.remove('done');
     });
-    $('step' + n).classList.add('active');
-    $('tab' + n).classList.add('active');
+    const target = $('step' + n);
+    if (target) target.classList.add('active');
+    const tab = $('tab' + n);
+    if (tab) tab.classList.add('active');
     window.scrollTo(0, 0);
 }
 
@@ -53,6 +61,17 @@ function pickKidsDNS(el, val) {
     kidsDNS = val;
 }
 
+function togglePort(port, el) {
+    const idx = selectedPorts.indexOf(port);
+    if (idx >= 0) {
+        selectedPorts.splice(idx, 1);
+        el.classList.remove('selected');
+    } else {
+        selectedPorts.push(port);
+        el.classList.add('selected');
+    }
+}
+
 function toggleGPIO(cb) {
     $('gpio_fields').style.display = cb.checked ? 'block' : 'none';
 }
@@ -66,6 +85,12 @@ function showResult(ok, msg) {
     el.style.display = 'block';
     el.className = 'alert ' + (ok ? 'alert-success' : 'alert-danger');
     el.textContent = (ok ? '✔ ' : '✖ ') + msg;
+}
+
+// ── Show/hide YouTube mode + block-search when SafeSearch is toggled ──────────
+function toggleSafeSearchOptions(cb) {
+    const opts = $('wiz_safesearch_opts');
+    if (opts) opts.style.display = cb.checked ? 'flex' : 'none';
 }
 
 // ── Validate step 2 ───────────────────────────────────────────────────────────
@@ -94,12 +119,14 @@ async function applyAll() {
     const stages = [
         { stage: 'primary', dns: primaryDNS },
         {
-            stage:      'kids',
-            ssid:       $('kids_ssid').value.trim(),
-            password:   $('kids_pwd').value,
-            dns:        kidsDNS,
-            safesearch: $('wiz_safesearch').checked,
-            doh:        $('wiz_doh').checked
+            stage:        'kids',
+            ssid:         $('kids_ssid').value.trim(),
+            password:     $('kids_pwd').value,
+            dns:          kidsDNS,
+            safesearch:   $('wiz_safesearch').checked,
+            youtube_mode: $('wiz_ytmode') ? $('wiz_ytmode').value : 'moderate',
+            block_search: $('wiz_blocksearch') ? $('wiz_blocksearch').checked : false,
+            doh:          $('wiz_doh').checked
         }
     ];
 
@@ -108,6 +135,11 @@ async function applyAll() {
             stage:    'gpio',
             gpio_pin: $('gpio_pin').value
         });
+    }
+
+    // Bridge mode: assign chosen ports
+    if (bridgeMode && selectedPorts.length > 0) {
+        stages.push({ ports: selectedPorts });
     }
 
     for (const stage of stages) {
@@ -145,6 +177,50 @@ return view.extend({
 
     render(status) {
         const existingSSID = status && status.ssid ? status.ssid : '';
+        bridgeMode  = !!(status && status.bridge_mode);
+        availPorts  = (status && status.available_ports) || [];
+        selectedPorts = [];
+
+        // Build port picker cards for bridge mode
+        const portCards = availPorts.length
+            ? availPorts.map(p =>
+                `<div class="pp-card pp-port-card" id="port-${p}" onclick="togglePort('${p}',this)">
+                   <h4>&#127760; ${p}</h4>
+                   <small>${_('Click to assign this LAN port to the kids network')}</small>
+                 </div>`
+              ).join('')
+            : `<p class="alert alert-warning">${_('No free LAN ports detected. You can assign ports later from the dashboard.')}</p>`;
+
+        const bridgeNotice = bridgeMode ? `
+  <div class="alert alert-warning" style="margin-bottom:1rem">
+    &#9888; <strong>${_('Bridge mode active')}</strong> —
+    ${_('Broadcom WiFi detected. VLAN tagging is not supported on this hardware. The kids network uses a dedicated bridge instead. WiFi isolation is automatic. For wired isolation, assign dedicated LAN ports in the next step.')}
+  </div>` : '';
+
+        const step4Tab  = bridgeMode ? `<div class="pp-tab" id="tab4">${_('4. LAN Ports')}</div>` : '';
+        const step4Html = bridgeMode ? `
+  <!-- STEP 4 — LAN Port assignment (bridge mode only) -->
+  <div class="pp-step" id="step4">
+    <h3>${_('Assign LAN Ports (Optional)')}</h3>
+    <div class="alert alert-info">
+      ${_('Your router uses a Broadcom WiFi chip that does not support VLAN tagging. WiFi devices are already isolated on the kids network. To isolate wired devices too, select which physical LAN ports should belong to the kids network. Unselected ports remain on your main network.')}
+    </div>
+    <div id="port-picker">
+      ${portCards}
+    </div>
+    <p><small>${_('You can change port assignments any time from the dashboard.')}</small></p>
+    <div style="margin-top:20px; display:flex; gap:8px; justify-content:flex-end">
+      <button class="cbi-button" onclick="goStep(3)">← ${_('Back')}</button>
+      <button class="cbi-button cbi-button-action" id="apply-btn" onclick="applyAll()">
+        ✔ ${_('Apply Configuration')}
+      </button>
+    </div>
+  </div>` : '';
+
+        // Step 3 forward button routes to step 4 in bridge mode, else applies
+        const step3Next = bridgeMode
+            ? `<button class="cbi-button cbi-button-action" onclick="goStep(4)">${_('Next: LAN Ports')} →</button>`
+            : `<button class="cbi-button cbi-button-action" id="apply-btn" onclick="applyAll()">✔ ${_('Apply Configuration')}</button>`;
 
         const css = `
 <style>
@@ -181,6 +257,7 @@ return view.extend({
   .pp-toggle-row input[type=checkbox] { margin-top:3px; width:16px; height:16px; flex-shrink:0; }
   .pp-toggles-box { border:1px solid #ddd; border-radius:4px; padding:4px 14px; margin-top:12px; }
   .field-error { color:#d9534f; font-size:.85em; margin-top:4px; display:none; }
+  .pp-port-card.selected { border-color:#5cb85c; background:#f0fff4; }
 </style>`;
 
         const html = `
@@ -189,6 +266,8 @@ ${css}
 <h2 class="section-title">${_('Parental Privacy Wizard')}</h2>
 
 <div class="pp-wizard">
+
+  ${bridgeNotice}
 
   <!-- Already-configured warning -->
   <div id="pp-already-warn" class="alert alert-warning"
@@ -205,6 +284,7 @@ ${css}
     <div class="pp-tab active" id="tab1">${_('1. Primary DNS')}</div>
     <div class="pp-tab" id="tab2">${_('2. Kids WiFi')}</div>
     <div class="pp-tab" id="tab3">${_('3. Hardware Button')}</div>
+    ${step4Tab}
   </div>
 
   <!-- STEP 1 — Primary DNS -->
@@ -280,10 +360,27 @@ ${css}
 
     <div class="pp-toggles-box">
       <div class="pp-toggle-row">
-        <input type="checkbox" id="wiz_safesearch" checked>
+        <input type="checkbox" id="wiz_safesearch" checked onchange="toggleSafeSearchOptions(this)">
         <div>
           <strong>${_('Force SafeSearch')}</strong><br>
-          <small>${_('Enforces safe results on Google, Bing, and YouTube Restricted Mode at DNS level — no device cooperation needed.')}</small>
+          <small>${_('Enforces safe results on Google, Bing, YouTube, DuckDuckGo, Brave and Pixabay at DNS level — no device cooperation needed.')}</small>
+        </div>
+      </div>
+      <div id="wiz_safesearch_opts" style="margin-left:1.75rem; margin-top:.5rem; display:flex; flex-direction:column; gap:.5rem;">
+        <div>
+          <label style="font-size:.85rem; font-weight:600">${_('YouTube restriction level')}</label><br>
+          <small style="color:#666">${_('Moderate blocks most adult content. Strict enables supervised mode — very locked down, may block legitimate videos.')}</small><br>
+          <select id="wiz_ytmode" style="margin-top:.3rem; max-width:160px">
+            <option value="moderate" selected>${_('Moderate')}</option>
+            <option value="strict">${_('Strict')}</option>
+          </select>
+        </div>
+        <div class="pp-toggle-row" style="margin-top:.25rem">
+          <input type="checkbox" id="wiz_blocksearch">
+          <div>
+            <strong>${_('Block uncontrolled search engines')}</strong><br>
+            <small>${_('Blocks search engines that cannot enforce SafeSearch at DNS level (e.g. Yandex, Baidu, Startpage, Ecosia). Prevents bypassing SafeSearch by switching to an unsupported engine.')}</small>
+          </div>
         </div>
       </div>
       <div class="pp-toggle-row">
@@ -323,11 +420,11 @@ ${css}
 
     <div style="margin-top:20px; display:flex; gap:8px; justify-content:flex-end">
       <button class="cbi-button" onclick="goStep(2)">← ${_('Back')}</button>
-      <button class="cbi-button cbi-button-action" id="apply-btn" onclick="applyAll()">
-        ✔ ${_('Apply Configuration')}
-      </button>
+      ${step3Next}
     </div>
   </div>
+
+  ${step4Html}
 
   <!-- Result -->
   <div id="pp-result" style="display:none; margin-top:16px"></div>
@@ -346,7 +443,8 @@ ${css}
         // Expose functions needed by inline onclick handlers
         Object.assign(window, {
             goStep, pickDNS, pickKidsDNS, toggleGPIO,
-            clearError, validateAndNext, applyAll
+            clearError, validateAndNext, applyAll, togglePort,
+            toggleSafeSearchOptions
         });
     }
 });

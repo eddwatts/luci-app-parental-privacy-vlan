@@ -1,23 +1,50 @@
 #!/bin/sh
-# 99-parental-privacy (VLAN edition)
-# Requires: OpenWrt 21.02+ with DSA, mac80211 WiFi driver (ath9k/ath10k/ath11k/mt76)
-# Uses VLAN 10 on br-lan for true single-NAT isolation.
-# Consoles and other devices get NAT Type 2 (Moderate) or better.
+# 99-parental-privacy
+# Requires: OpenWrt 21.02+ with DSA
+# VLAN path  — mac80211 drivers (ath9k/ath10k/ath11k/mt76): full VLAN isolation
+# Bridge path — Broadcom brcmfmac (and any driver lacking mac80211 VLAN support):
+#               separate br-kids bridge; wired isolation via dedicated LAN port(s)
 
 INSTALL_DIR="/usr/share/parental-privacy"
+
+# ── Driver detection — brcmfmac / bridge mode ─────────────────────────────────
+# Returns 0 (true) if ANY radio uses the Broadcom brcmfmac driver, which does
+# not support mac80211 VLAN tagging on a VAP.  In that case we fall back to a
+# separate br-kids bridge instead of a VLAN subinterface on br-lan.
+is_brcmfmac() {
+    for radio in $(uci show wireless 2>/dev/null \
+                   | grep '=wifi-device' \
+                   | sed 's/=wifi-device//;s/wireless\.//'); do
+        # Try the explicit phy= key first, then derive phyN from radioN
+        phy=$(uci -q get wireless.${radio}.phy 2>/dev/null)
+        [ -z "$phy" ] && phy="phy${radio#radio}"
+        # Read driver name from sysfs — works on OpenWrt 21.02+
+        driver=$(cat /sys/class/ieee80211/${phy}/device/driver/module/name 2>/dev/null)
+        [ -z "$driver" ] && \
+            driver=$(basename "$(readlink /sys/class/ieee80211/${phy}/device/driver 2>/dev/null)" 2>/dev/null)
+        [ "$driver" = "brcmfmac" ] && return 0
+    done
+    return 1
+}
 
 # ── VLAN selection ────────────────────────────────────────────────────────────
 # Pick the first unused VLAN ID from the preferred list.
 # Checks both UCI bridge-vlan configs and live kernel VLAN interfaces so we
 # never clash with an existing VLAN (e.g. IPTV, VoIP, guest networks).
 pick_vlan() {
-    for candidate in 10 20 30 40 50 60 70 80 90 100; do
+    # Preference order:
+    #   28  — matches the 172.28.x.x subnet scheme (172.28.28.x), memorable and unused
+    #   80–100 — high numbers, away from typical guest/IPTV/VoIP/CCTV range
+    #   70–40  — mid-range, less common but approaching consumer VLAN territory
+    #   30     — last of the round numbers before the common block
+    #   15, 25 — obscure non-round numbers, unlikely to be in use
+    for candidate in 28 80 90 100 70 60 50 40 30 15 25; do
         # Check UCI network config for any bridge-vlan using this ID
         if uci show network 2>/dev/null | grep -q "\.vlan='${candidate}'"; then
             continue
         fi
-        # Check kernel for live br-lan.<vlan> or vlan<id> interfaces
-        if ip link show 2>/dev/null | grep -qE "br-lan\.${candidate}[^0-9]|vlan${candidate}[^0-9]"; then
+        # Check kernel for live <bridge>.<vlan> or vlan<id> interfaces
+        if ip link show 2>/dev/null | grep -qE "\\.${candidate}[^0-9]|vlan${candidate}[^0-9]"; then
             continue
         fi
         # Check /proc/net/vlan/config if it exists (swconfig systems)
@@ -27,31 +54,145 @@ pick_vlan() {
         echo "$candidate"
         return
     done
-    # Extremely unlikely but safe fallback
-    echo "10"
+    # All candidates are taken — this is an unusual network configuration.
+    # Fail loudly rather than silently grabbing a likely-in-use VLAN.
+    logger -t parental-privacy "FATAL: No free VLAN ID found (tried 28 80 90 100 70 60 50 40 30 15 25). Install aborted."
+    exit 1
 }
 
 KIDS_VLAN=$(pick_vlan)
 # Derive the kids subnet from the VLAN ID: 172.28.<vlan>.x
 KIDS_IP="172.28.${KIDS_VLAN}.1"
 
+# Derive the LAN bridge name from UCI rather than assuming br-lan.
+# Falls back to br-lan if the key is absent or not a bridge device.
+_lan_dev=$(uci -q get network.lan.device 2>/dev/null)
+case "$_lan_dev" in
+    br-*)  LAN_BRIDGE="$_lan_dev" ;;
+    *)     LAN_BRIDGE="br-lan"    ;;
+esac
+
 logger -t parental-privacy "Using VLAN ${KIDS_VLAN} (subnet 172.28.${KIDS_VLAN}.0/24)"
 
+# ── Pre-install backup ────────────────────────────────────────────────────────
+# Snapshot every UCI config we are about to touch, plus crontab and dnsmasq,
+# so the user has a clean restore path if anything goes wrong.
+# Backup lives at /etc/parental-privacy/pre-install-backup/<timestamp>/
+# and includes a ready-to-run restore.sh that needs no extra tools.
+_TS=$(date +%Y%m%d-%H%M%S)
+_BACKUP_ROOT="/etc/parental-privacy/pre-install-backup"
+_BACKUP_DIR="${_BACKUP_ROOT}/${_TS}"
+mkdir -p "$_BACKUP_DIR"
 
+# Export the four UCI configs we will modify
+for _cfg in network wireless dhcp firewall; do
+    uci export "$_cfg" > "${_BACKUP_DIR}/${_cfg}.uci" 2>/dev/null
+done
 
-# ── Sanity check: confirm DSA is available ───────────────────────────────────
-# If br-lan doesn't exist yet or swconfig is in use, abort cleanly and let
-# the fallback bridge package handle it instead.
+# Snapshot crontab
+[ -f /etc/crontabs/root ] && \
+    cp /etc/crontabs/root "${_BACKUP_DIR}/crontab.root" 2>/dev/null
+
+# Snapshot dnsmasq includes directory (SafeSearch writes here)
+[ -d /etc/dnsmasq.d ] && \
+    cp -r /etc/dnsmasq.d "${_BACKUP_DIR}/dnsmasq.d" 2>/dev/null
+
+# Write a self-contained restore script into the backup directory
+cat > "${_BACKUP_DIR}/restore.sh" << 'RESTORE_EOF'
+#!/bin/sh
+# Auto-generated by parental-privacy installer
+# Run this script to fully revert to the state before parental-privacy was installed.
+# Usage:  sh /etc/parental-privacy/pre-install-backup/<timestamp>/restore.sh
+
+set -e
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "==> Stopping parental-privacy services..."
+[ -f /etc/init.d/parental-privacy ] && {
+    /etc/init.d/parental-privacy stop  2>/dev/null || true
+    /etc/init.d/parental-privacy disable 2>/dev/null || true
+}
+
+echo "==> Restoring UCI configs..."
+for cfg in network wireless dhcp firewall; do
+    backup="${SELF_DIR}/${cfg}.uci"
+    [ -f "$backup" ] || { echo "  SKIP: ${cfg}.uci not found"; continue; }
+    # Wipe current config then import the snapshot
+    uci revert "$cfg" 2>/dev/null || true
+    # uci import replaces all sections in the package
+    uci import "$cfg" < "$backup"
+    uci commit "$cfg"
+    echo "  OK: $cfg"
+done
+
+echo "==> Restoring crontab..."
+if [ -f "${SELF_DIR}/crontab.root" ]; then
+    cp "${SELF_DIR}/crontab.root" /etc/crontabs/root
+    /etc/init.d/cron restart 2>/dev/null || true
+    echo "  OK: crontab"
+else
+    echo "  SKIP: no crontab backup"
+fi
+
+echo "==> Restoring dnsmasq includes..."
+if [ -d "${SELF_DIR}/dnsmasq.d" ]; then
+    rm -rf /etc/dnsmasq.d
+    cp -r "${SELF_DIR}/dnsmasq.d" /etc/dnsmasq.d
+    echo "  OK: dnsmasq.d"
+else
+    echo "  SKIP: no dnsmasq.d backup"
+fi
+
+echo "==> Removing parental-privacy UCI config..."
+uci delete parental_privacy.default 2>/dev/null || true
+uci commit parental_privacy 2>/dev/null || true
+
+echo "==> Removing parental-privacy runtime files..."
+rm -f /etc/dnsmasq.d/safesearch.conf 2>/dev/null || true
+
+echo "==> Reloading services..."
+/etc/init.d/network restart
+/etc/init.d/dnsmasq restart
+/etc/init.d/firewall restart
+wifi reload >/dev/null 2>&1 &
+
+echo ""
+echo "Restore complete. Your router configuration has been returned to the"
+echo "state it was in before parental-privacy was installed."
+echo "Backup source: ${SELF_DIR}"
+RESTORE_EOF
+chmod +x "${_BACKUP_DIR}/restore.sh"
+
+# Keep only the 3 most recent backups to avoid filling flash storage
+# (each backup is typically 20-60 KB; 3 costs ~180 KB at most)
+if [ -d "$_BACKUP_ROOT" ]; then
+    ls -dt "${_BACKUP_ROOT}"/20* 2>/dev/null | tail -n +4 | while read -r _old; do
+        rm -rf "$_old"
+        logger -t parental-privacy "Pruned old backup: $_old"
+    done
+fi
+
+logger -t parental-privacy "Pre-install backup saved to ${_BACKUP_DIR}"
+
+# ── Choose install mode ───────────────────────────────────────────────────────
+# BRIDGE_MODE=1 when brcmfmac is present OR when DSA/br-lan is unavailable.
+# In bridge mode we create br-kids and skip the VLAN subinterface entirely.
+BRIDGE_MODE=0
+
 if ! ip link show br-lan >/dev/null 2>&1; then
-    logger -t parental-privacy "VLAN setup skipped: br-lan not found. Install the bridge edition instead."
-    exit 0
+    logger -t parental-privacy "br-lan not found — falling back to bridge mode."
+    BRIDGE_MODE=1
+elif [ -d /sys/class/net/br-lan/brif ] && \
+     ls /sys/class/net/br-lan/brif/ | grep -q "eth" && \
+     [ -f /proc/net/vlan/config ]; then
+    logger -t parental-privacy "swconfig detected — falling back to bridge mode."
+    BRIDGE_MODE=1
+elif is_brcmfmac; then
+    logger -t parental-privacy "brcmfmac driver detected — falling back to bridge mode (no mac80211 VLAN support)."
+    BRIDGE_MODE=1
 fi
-if [ -d /sys/class/net/br-lan/brif ] && \
-   ls /sys/class/net/br-lan/brif/ | grep -q "eth" && \
-   [ -f /proc/net/vlan/config ]; then
-    logger -t parental-privacy "VLAN setup skipped: swconfig detected. Install the bridge edition instead."
-    exit 0
-fi
+
+uci set parental_privacy.default.bridge_mode="$BRIDGE_MODE"
 
 # ── Initial Schedule ─────────────────────────────────────────────────────────
 uci -q batch <<'EOF'
@@ -73,6 +214,31 @@ for day in Fri Sat; do
 done
 uci commit parental_privacy
 
+# ── Restore schedule from backup (if a previous install was removed) ──────────
+# remove.sh writes /etc/parental-privacy/schedule.backup before wiping config.
+# If that file exists we restore the saved values on top of the defaults above,
+# then delete the backup so it isn't reused on a subsequent fresh install.
+BACKUP_FILE="/etc/parental-privacy/schedule.backup"
+if [ -f "$BACKUP_FILE" ]; then
+    logger -t parental-privacy "Restoring schedule from $BACKUP_FILE"
+    while IFS='=' read -r key val; do
+        # Skip comment lines and blank lines
+        case "$key" in '#'*|'') continue ;; esac
+        case "$key" in
+            schedule_Mon|schedule_Tue|schedule_Wed|schedule_Thu|\
+            schedule_Fri|schedule_Sat|schedule_Sun)
+                uci set parental_privacy.default.${key}="$val" ;;
+            wifi_password)
+                # Only restore password if none is set yet (fresh UCI)
+                uci -q get parental_privacy.default.wifi_password >/dev/null 2>&1 || \
+                    uci set parental_privacy.default.wifi_password="$val" ;;
+        esac
+    done < "$BACKUP_FILE"
+    uci commit parental_privacy
+    rm -f "$BACKUP_FILE"
+    logger -t parental-privacy "Schedule restored and backup removed."
+fi
+
 # ── Random Password (generated once at install, before any UCI writes) ────────
 # Falls back through three methods: openssl, /dev/urandom+tr, date hash.
 # The password is stored in the parental_privacy UCI config so the dashboard
@@ -92,34 +258,90 @@ else
 fi
 
 # ── Dynamic SSID ─────────────────────────────────────────────────────────────
-PRIMARY_SSID=$(uci get wireless.@wifi-iface[0].ssid 2>/dev/null)
-[ -z "$PRIMARY_SSID" ] && PRIMARY_SSID="OpenWrt"
+# Find the primary (main home) network SSID by scanning all wifi-iface sections
+# and skipping any that are: already the kids VAP, disabled, a guest/IoT/kids
+# network (by name heuristic), or not in AP mode.
+# Falls back to @wifi-iface[0] if nothing suitable is found.
+pick_primary_ssid() {
+    local iface ssid mode network disabled found_ssid=""
+
+    # Collect all named and indexed wifi-iface sections
+    local iface_list
+    iface_list=$(uci show wireless 2>/dev/null \
+        | grep "=wifi-iface" \
+        | sed "s/=wifi-iface//;s/wireless\.//" )
+
+    for iface in $iface_list; do
+        # Skip the kids VAPs we create (or may have created on a prior run)
+        case "$iface" in kids_wifi*) continue ;; esac
+
+        mode=$(uci -q get wireless.${iface}.mode)
+        [ "$mode" != "ap" ] && continue
+
+        disabled=$(uci -q get wireless.${iface}.disabled)
+        [ "$disabled" = "1" ] && continue
+
+        ssid=$(uci -q get wireless.${iface}.ssid 2>/dev/null)
+        [ -z "$ssid" ] && continue
+
+        # Skip SSIDs that look like guest / IoT / kids networks
+        # (case-insensitive match on common suffixes/keywords)
+        echo "$ssid" | grep -qiE \
+            'guest|kids|child|iot|visitor|corp|office|_kids$|_guest$' \
+            && continue
+
+        # First surviving candidate wins
+        found_ssid="$ssid"
+        break
+    done
+
+    # Fallback: try @wifi-iface[0] regardless of type
+    if [ -z "$found_ssid" ]; then
+        found_ssid=$(uci -q get wireless.@wifi-iface[0].ssid 2>/dev/null)
+    fi
+
+    echo "${found_ssid:-OpenWrt}"
+}
+
+PRIMARY_SSID=$(pick_primary_ssid)
 KIDS_SSID="${PRIMARY_SSID}_Kids"
 
-# ── 1. VLAN on br-lan ────────────────────────────────────────────────────────
-# Tag VLAN 10 on all LAN ports so kids traffic is separated at the switch level.
-# The WiFi VAP attaches to this VLAN via the kids interface below.
-if ! uci get network.kids_vlan >/dev/null 2>&1; then
-    uci set network.kids_vlan=bridge-vlan
-    uci set network.kids_vlan.device='br-lan'
-    uci set network.kids_vlan.vlan="$KIDS_VLAN"
+# ── 1. Network interface — VLAN or bridge ────────────────────────────────────
+if [ "$BRIDGE_MODE" = "1" ]; then
+    # ── Bridge path ───────────────────────────────────────────────────────────
+    # Create a standalone br-kids bridge.  The WiFi VAP attaches directly to it.
+    # Wired isolation requires the user to assign physical LAN ports via the
+    # dashboard — prompted by the UI warning banner.
+    if ! uci get network.kids >/dev/null 2>&1; then
+        uci set network.kids=interface
+        uci set network.kids.type='bridge'
+        uci set network.kids.proto='static'
+        uci set network.kids.ipaddr="$KIDS_IP"
+        uci set network.kids.netmask='255.255.255.0'
+        # br-kids starts with no physical ports — user assigns them from the dashboard
+    fi
+    logger -t parental-privacy "Bridge mode: kids interface on br-kids (subnet 172.28.${KIDS_VLAN}.0/24)"
+else
+    # ── VLAN path ─────────────────────────────────────────────────────────────
+    # Tag VLAN on br-lan; WiFi VAP attaches via VLAN subinterface.
+    if ! uci get network.kids_vlan >/dev/null 2>&1; then
+        uci set network.kids_vlan=bridge-vlan
+        uci set network.kids_vlan.device="$LAN_BRIDGE"
+        uci set network.kids_vlan.vlan="$KIDS_VLAN"
 
-    # Tag all physical LAN ports. Detect them dynamically rather than hardcoding.
-    # DSA ports appear as lanN or ethN members of br-lan.
-    for port in $(bridge link show | grep 'master br-lan' | awk '{print $2}' | tr -d ':' | grep -v '^cpu\|^eth0$'); do
-        uci add_list network.kids_vlan.ports="${port}:t"
-    done
-fi
+        for port in $(bridge link show | grep "master ${LAN_BRIDGE}" | awk '{print $2}' | tr -d ':' | grep -v '^cpu\|^eth0$'); do
+            uci add_list network.kids_vlan.ports="${port}:t"
+        done
+    fi
 
-# ── 2. Network Interface (VLAN subinterface) ─────────────────────────────────
-if ! uci get network.kids >/dev/null 2>&1; then
-    uci set network.kids=interface
-    uci set network.kids.device="br-lan.${KIDS_VLAN}"
-    uci set network.kids.proto='static'
-    uci set network.kids.ipaddr="$KIDS_IP"
-    uci set network.kids.netmask='255.255.255.0'
-    # No masq needed here — single NAT at WAN handles both VLANs naturally.
-    # masq_src can be set if your WAN is a routed subnet rather than PPPoE/DHCP.
+    if ! uci get network.kids >/dev/null 2>&1; then
+        uci set network.kids=interface
+        uci set network.kids.device="${LAN_BRIDGE}.${KIDS_VLAN}"
+        uci set network.kids.proto='static'
+        uci set network.kids.ipaddr="$KIDS_IP"
+        uci set network.kids.netmask='255.255.255.0'
+    fi
+    logger -t parental-privacy "VLAN mode: kids interface on ${LAN_BRIDGE}.${KIDS_VLAN} (subnet 172.28.${KIDS_VLAN}.0/24)"
 fi
 
 # ── 3. DHCP ──────────────────────────────────────────────────────────────────
@@ -257,9 +479,8 @@ if ! uci get firewall.kids_zone >/dev/null 2>&1; then
 fi
 
 # ── 5. Wireless ──────────────────────────────────────────────────────────────
-# The VAP uses network='kids' which resolves to br-lan.10.
-# mac80211 drivers handle VLAN tagging on the VAP automatically.
-# NOTE: brcmfmac (Broadcom) does NOT support this — use the bridge edition.
+# VLAN path:   network='kids' → br-lan.<vlan>  (mac80211 handles VLAN tagging)
+# Bridge path: network='kids' → br-kids        (no VLAN tagging needed)
 
 # Radio detection: prefer the OpenWrt 22.03+ 'band=' key; fall back to
 # 'hwmode=' for 21.02 compatibility.  hwmode='11g' = 2.4GHz only.
@@ -351,6 +572,6 @@ wifi reload >/dev/null 2>&1 &
 # init script applies SafeSearch (dnsmasq) and DoH blocking (nftables).
 /etc/init.d/parental-privacy start
 
-logger -t parental-privacy "VLAN edition setup complete. Service parental-privacy is now active."
+logger -t parental-privacy "Setup complete ($([ "$BRIDGE_MODE" = "1" ] && echo "bridge mode" || echo "VLAN mode")). Service parental-privacy is now active."
 
 exit 0

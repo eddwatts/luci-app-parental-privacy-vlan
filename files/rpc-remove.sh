@@ -5,7 +5,7 @@
 # Called by /usr/libexec/rpcd/parental-privacy when method is "remove".
 
 if /usr/share/parental-privacy/remove.sh; then
-    echo '{"success":true}'
+    echo '{"success":true,"backup":"/etc/parental-privacy/schedule.backup"}'
 else
     echo '{"success":false,"error":"remove.sh failed — check logread for details"}'
 fi

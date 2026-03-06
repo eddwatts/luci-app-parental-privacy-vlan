@@ -46,6 +46,44 @@ fail() {
     exit 1
 }
 
+# ── Primary SSID detection ────────────────────────────────────────────────────
+# Mirrors the logic in 99-parental-privacy and rpc-status.sh so a reset or
+# blank SSID submission always regenerates the branded name correctly,
+# regardless of multi-radio / guest-network ordering.
+pick_primary_ssid() {
+    local iface ssid mode disabled found_ssid=""
+    local iface_list
+    iface_list=$(uci show wireless 2>/dev/null \
+        | grep "=wifi-iface" \
+        | sed "s/=wifi-iface//;s/wireless\.//" )
+
+    for iface in $iface_list; do
+        case "$iface" in kids_wifi*) continue ;; esac
+
+        mode=$(uci -q get wireless.${iface}.mode)
+        [ "$mode" != "ap" ] && continue
+
+        disabled=$(uci -q get wireless.${iface}.disabled)
+        [ "$disabled" = "1" ] && continue
+
+        ssid=$(uci -q get wireless.${iface}.ssid 2>/dev/null)
+        [ -z "$ssid" ] && continue
+
+        echo "$ssid" | grep -qiE \
+            'guest|kids|child|iot|visitor|corp|office|_kids$|_guest$' \
+            && continue
+
+        found_ssid="$ssid"
+        break
+    done
+
+    if [ -z "$found_ssid" ]; then
+        found_ssid=$(uci -q get wireless.@wifi-iface[0].ssid 2>/dev/null)
+    fi
+
+    echo "${found_ssid:-OpenWrt}"
+}
+
 ok() {
     echo "{\"success\":true}"
 }
@@ -208,7 +246,11 @@ if [ "$STAGE" = "kids" ]; then
     SS=$(json_bool '@.safesearch')
     DOH=$(json_bool '@.doh')
 
-    [ -z "$SSID" ] && fail "ssid required"
+    # If SSID is blank (e.g. user cleared field or reset), regenerate the
+    # branded name from the real primary network rather than failing hard.
+    if [ -z "$SSID" ]; then
+        SSID="$(pick_primary_ssid)_Kids"
+    fi
     [ ${#PASS} -lt 8 ] && fail "password must be at least 8 characters"
 
     set_wifi "ssid"       "$SSID"
@@ -220,6 +262,13 @@ if [ "$STAGE" = "kids" ]; then
 
     if [ -n "$SS" ]; then
         uci set parental_privacy.default.safesearch="$SS"
+        YTMODE=$(json_get '@.youtube_mode')
+        [ -n "$YTMODE" ] && {
+            case "$YTMODE" in moderate|strict) ;; *) YTMODE="moderate" ;; esac
+            uci set parental_privacy.default.youtube_mode="$YTMODE"
+        }
+        BSEARCH=$(json_bool '@.block_search')
+        [ -n "$BSEARCH" ] && uci set parental_privacy.default.block_search="$BSEARCH"
         [ "$SS" = "1" ] && /usr/share/parental-privacy/safesearch.sh enable \
                         || /usr/share/parental-privacy/safesearch.sh disable
     fi
@@ -276,6 +325,10 @@ MASTER=$(json_bool '@.master')
 
 # ── SSID ──────────────────────────────────────────────────────────────────────
 SSID=$(json_get '@.ssid')
+# If the field is present but blank, regenerate the branded name correctly
+# using the same primary-SSID detection as the installer.
+[ -n "$(echo "$INPUT" | jsonfilter -e '@.ssid' 2>/dev/null)" ] && \
+    [ -z "$SSID" ] && SSID="$(pick_primary_ssid)_Kids"
 if [ -n "$SSID" ] && [ "$SSID" != "$PREV_SSID" ]; then
     set_wifi "ssid" "$SSID"
     WIFI_CHANGED=1
@@ -305,6 +358,26 @@ SS=$(json_bool '@.safesearch')
     uci set parental_privacy.default.safesearch="$SS"
     [ "$SS" = "1" ] && /usr/share/parental-privacy/safesearch.sh enable \
                     || /usr/share/parental-privacy/safesearch.sh disable
+}
+
+# ── YouTube restricted mode ───────────────────────────────────────────────────
+# Values: "moderate" (restrict.youtube.com) or "strict" (restrictmd.youtube.com)
+YTMODE=$(json_get '@.youtube_mode')
+[ -n "$YTMODE" ] && {
+    case "$YTMODE" in moderate|strict) ;; *) YTMODE="moderate" ;; esac
+    uci set parental_privacy.default.youtube_mode="$YTMODE"
+    # Re-run safesearch to pick up new mode (only if safesearch is enabled)
+    CUR_SS=$(uci -q get parental_privacy.default.safesearch)
+    [ "${CUR_SS:-1}" = "1" ] && /usr/share/parental-privacy/safesearch.sh enable
+}
+
+# ── Block uncontrolled search engines ────────────────────────────────────────
+BSEARCH=$(json_bool '@.block_search')
+[ -n "$BSEARCH" ] && {
+    uci set parental_privacy.default.block_search="$BSEARCH"
+    # Re-run safesearch to add/remove the block rules (only if safesearch on)
+    CUR_SS=$(uci -q get parental_privacy.default.safesearch)
+    [ "${CUR_SS:-1}" = "1" ] && /usr/share/parental-privacy/safesearch.sh enable
 }
 
 # ── DoH blocking ──────────────────────────────────────────────────────────────
@@ -392,6 +465,39 @@ if [ -n "$HAS_SCHEDULE" ]; then
     # Install new crontab
     mv "$TMPFILE" /etc/crontabs/root
     /etc/init.d/cron restart
+fi
+
+# ── Bridge mode: LAN port assignment ─────────────────────────────────────────
+# Accepts {"ports":["lan2","lan3"]} — moves named ports between br-lan and
+# br-kids.  Only processed when bridge_mode=1 in UCI.
+BRIDGE_MODE=$(uci -q get parental_privacy.default.bridge_mode)
+if [ "$BRIDGE_MODE" = "1" ]; then
+    PORTS_RAW=$(echo "$INPUT" | jsonfilter -e '@.ports[@]' 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
+    if [ -n "$PORTS_RAW" ]; then
+        # Validate port names — only allow lan[N] or eth[N] style
+        for port in $PORTS_RAW; do
+            echo "$port" | grep -qE '^(lan[0-9]+|eth[0-9]+)$' || \
+                fail "invalid port name: $port (expected lanN or ethN)"
+        done
+
+        LAN_BR=$(uci -q get network.lan.device 2>/dev/null); LAN_BR=${LAN_BR:-br-lan}
+        KIDS_BR="br-kids"
+
+        # Remove all current kids bridge members from UCI
+        uci -q delete network.kids.ports 2>/dev/null
+
+        # Move each requested port: remove from br-lan VLAN list, add to kids
+        for port in $PORTS_RAW; do
+            # Remove from br-lan bridge-vlan untagged list if present
+            uci -q del_list network.kids_vlan.ports="${port}" 2>/dev/null
+            uci -q del_list network.kids_vlan.ports="${port}:t" 2>/dev/null
+            # Add to kids bridge
+            uci add_list network.kids.ports="$port"
+        done
+
+        uci commit network
+        /etc/init.d/network restart
+    fi
 fi
 
 # ── Commit & reload ───────────────────────────────────────────────────────────

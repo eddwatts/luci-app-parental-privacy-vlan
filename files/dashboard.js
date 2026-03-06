@@ -383,7 +383,18 @@ async function updateStatus() {
 
         // Sync safesearch, doh + relay toggles
         const ss = $('sw-safesearch');
-        if (ss) ss.classList.toggle('on', !!data.safesearch);
+        if (ss) {
+            ss.classList.toggle('on', !!data.safesearch);
+            const ssOn = !!data.safesearch;
+            const ytRow = $('row-youtube-mode');
+            const bsRow = $('row-block-search');
+            if (ytRow) ytRow.style.display = ssOn ? '' : 'none';
+            if (bsRow) bsRow.style.display = ssOn ? '' : 'none';
+        }
+        const ytSel = $('yt-mode-select');
+        if (ytSel && data.youtube_mode) ytSel.value = data.youtube_mode;
+        const bsSw = $('sw-block-search');
+        if (bsSw) bsSw.classList.toggle('on', !!data.block_search);
         const doh = $('BlockDoH');
         if (doh) doh.classList.toggle('on', !!data.doh_block);
         const relay = $('sw-relay');
@@ -488,6 +499,12 @@ function updateCustomPreview() {
 }
 
 function useSuggestedSSID() {
+    // suggestedSSID is populated by rpc-status.sh which now uses the smart
+    // pick_primary_ssid() logic — so this always reflects the true home network.
+    if (!suggestedSSID) {
+        showToast('error', _('Suggested name not available yet — try again in a moment'));
+        return;
+    }
     $('wifi-ssid').value = suggestedSSID;
     markUnsaved();
     showToast('ok', _('Switched to suggested SSID'));
@@ -559,6 +576,8 @@ async function saveAll() {
                            : selectedDNS,
         doh:           $('BlockDoH').classList.contains('on'),
         safesearch:    $('sw-safesearch').classList.contains('on'),
+        youtube_mode:  $('yt-mode-select') ? $('yt-mode-select').value : 'moderate',
+        block_search:  $('sw-block-search') ? $('sw-block-search').classList.contains('on') : false,
         broadcast_relay: $('sw-relay').classList.contains('on'),
         schedule:      schedule,
         button_config: {
@@ -593,13 +612,13 @@ async function saveAll() {
 
 // ── Remove ────────────────────────────────────────────────────────────────────
 async function removeNetwork() {
-    if (!confirm(_('Remove Kids Network? This will delete all Kids WiFi configuration.')))
+    if (!confirm(_('Remove Kids Network? This will delete all Kids WiFi configuration.\n\nYour schedule will be saved to /etc/parental-privacy/schedule.backup and restored automatically if you reinstall.')))
         return;
     try {
         const data = await callRemove();
         if (data && data.success) {
-            showToast('ok', _('Kids Network removed.'));
-            addLog('warn', 'Kids Network removed');
+            showToast('ok', _('Kids Network removed. Schedule backed up for reinstall.'));
+            addLog('warn', 'Kids Network removed — schedule saved to schedule.backup');
         } else {
             showToast('err', 'Remove failed: ' + (data ? data.error : 'unknown'));
         }
@@ -723,6 +742,8 @@ return view.extend({
         const ss       = status  ? status.safesearch    : true;
         const doh      = status  ? status.doh_block     : true;
         const relayOn  = status  ? status.broadcast_relay : true;
+        const ytMode   = (status && status.youtube_mode) || 'moderate';
+        const blkSrch  = status  ? status.block_search   : false;
 
         // ── HTML ──────────────────────────────────────────────────────────────
         const html = `
@@ -896,9 +917,32 @@ ${css}
     <div class="kn-toggle-row">
       <div class="kn-tinfo">
         <strong>${_('SafeSearch enforcement')}</strong>
-        <small>${_('Forces SafeSearch on Google, Bing, YouTube and DuckDuckGo via DNS CNAME')}</small>
+        <small>${_('Forces SafeSearch on Google, Bing, YouTube, DuckDuckGo, Brave and Pixabay via DNS CNAME')}</small>
       </div>
-      <div class="kn-switch ${ss ? 'on' : ''}" id="sw-safesearch" onclick="this.classList.toggle('on');markUnsaved()"></div>
+      <div class="kn-switch ${ss ? 'on' : ''}" id="sw-safesearch" onclick="
+        this.classList.toggle('on');
+        const on = this.classList.contains('on');
+        document.getElementById('row-youtube-mode').style.display = on ? '' : 'none';
+        document.getElementById('row-block-search').style.display = on ? '' : 'none';
+        markUnsaved()
+      "></div>
+    </div>
+    <div class="kn-toggle-row" id="row-youtube-mode" style="${ss ? '' : 'display:none'}">
+      <div class="kn-tinfo">
+        <strong>${_('YouTube restriction level')}</strong>
+        <small>${_('Moderate blocks most adult content. Strict enables supervised mode — very locked down, may block legitimate videos.')}</small>
+      </div>
+      <select class="cbi-input-select" id="yt-mode-select" onchange="markUnsaved()" style="min-width:120px">
+        <option value="moderate" ${ytMode === 'moderate' ? 'selected' : ''}>${_('Moderate')}</option>
+        <option value="strict"   ${ytMode === 'strict'   ? 'selected' : ''}>${_('Strict')}</option>
+      </select>
+    </div>
+    <div class="kn-toggle-row" id="row-block-search" style="${ss ? '' : 'display:none'}">
+      <div class="kn-tinfo">
+        <strong>${_('Block uncontrolled search engines')}</strong>
+        <small>${_('Blocks search engines that cannot enforce SafeSearch at DNS level (e.g. Yandex, Baidu, Startpage, Ecosia). Prevents bypassing SafeSearch by switching to an unsupported engine.')}</small>
+      </div>
+      <div class="kn-switch ${blkSrch ? 'on' : ''}" id="sw-block-search" onclick="this.classList.toggle('on');markUnsaved()"></div>
     </div>
   </div>
 </div>
@@ -1045,6 +1089,13 @@ ${css}
     handleSaveApply: null,
     handleSave: null,
     handleReset: null,
+
+    // Called by LuCI when the user navigates away from this view.
+    // Clears the polling interval so it doesn't run against a detached DOM.
+    close() {
+        if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
+        if (toastTimer)  { clearTimeout(toastTimer);   toastTimer  = null; }
+    },
 
     // Use addFooter to run post-DOM setup instead
     addFooter() {

@@ -86,6 +86,15 @@ msgstr "Settings applied successfully!"
 msgid "Remove Kids Network? This will delete all Kids WiFi configuration."
 msgstr "Remove Kids Network? This will delete all Kids WiFi configuration."
 
+msgid "Remove Kids Network? This will delete all Kids WiFi configuration.\n\nYour schedule will be saved to /etc/parental-privacy/schedule.backup and restored automatically if you reinstall."
+msgstr "Remove Kids Network? This will delete all Kids WiFi configuration.\n\nYour schedule will be saved to /etc/parental-privacy/schedule.backup and restored automatically if you reinstall."
+
+msgid "Kids Network removed."
+msgstr "Kids Network removed."
+
+msgid "Kids Network removed. Schedule backed up for reinstall."
+msgstr "Kids Network removed. Schedule backed up for reinstall."
+
 #: dashboard.js:599
 msgid "Kids Network removed."
 msgstr "Kids Network removed."
@@ -283,8 +292,32 @@ msgid "SafeSearch enforcement"
 msgstr "SafeSearch enforcement"
 
 #: dashboard.js:902
-msgid "Forces SafeSearch on Google, Bing, YouTube and DuckDuckGo via DNS CNAME"
-msgstr "Forces SafeSearch on Google, Bing, YouTube and DuckDuckGo via DNS CNAME"
+msgid "Forces SafeSearch on Google, Bing, YouTube, DuckDuckGo, Brave and Pixabay via DNS CNAME"
+msgstr "Forces SafeSearch on Google, Bing, YouTube, DuckDuckGo, Brave and Pixabay via DNS CNAME"
+
+#: dashboard.js:906
+msgid "YouTube restriction level"
+msgstr "YouTube restriction level"
+
+#: dashboard.js:907
+msgid "Moderate blocks most adult content. Strict enables supervised mode — very locked down, may block legitimate videos."
+msgstr "Moderate blocks most adult content. Strict enables supervised mode — very locked down, may block legitimate videos."
+
+#: dashboard.js:912
+msgid "Moderate"
+msgstr "Moderate"
+
+#: dashboard.js:913
+msgid "Strict"
+msgstr "Strict"
+
+#: dashboard.js:917
+msgid "Block uncontrolled search engines"
+msgstr "Block uncontrolled search engines"
+
+#: dashboard.js:918
+msgid "Blocks search engines that cannot enforce SafeSearch at DNS level (e.g. Yandex, Baidu, Startpage, Ecosia). Prevents bypassing SafeSearch by switching to an unsupported engine."
+msgstr "Blocks search engines that cannot enforce SafeSearch at DNS level (e.g. Yandex, Baidu, Startpage, Ecosia). Prevents bypassing SafeSearch by switching to an unsupported engine."
 
 #: dashboard.js:911
 msgid "Bedtime Schedule"
@@ -563,8 +596,32 @@ msgid "Force SafeSearch"
 msgstr "Force SafeSearch"
 
 #: wizard.js:286
-msgid "Enforces safe results on Google, Bing, and YouTube Restricted Mode at DNS level — no device cooperation needed."
-msgstr "Enforces safe results on Google, Bing, and YouTube Restricted Mode at DNS level — no device cooperation needed."
+msgid "Enforces safe results on Google, Bing, YouTube, DuckDuckGo, Brave and Pixabay at DNS level — no device cooperation needed."
+msgstr "Enforces safe results on Google, Bing, YouTube, DuckDuckGo, Brave and Pixabay at DNS level — no device cooperation needed."
+
+#: wizard.js:289
+msgid "YouTube restriction level"
+msgstr "YouTube restriction level"
+
+#: wizard.js:290
+msgid "Moderate blocks most adult content. Strict enables supervised mode — very locked down, may block legitimate videos."
+msgstr "Moderate blocks most adult content. Strict enables supervised mode — very locked down, may block legitimate videos."
+
+#: wizard.js:293
+msgid "Moderate"
+msgstr "Moderate"
+
+#: wizard.js:294
+msgid "Strict"
+msgstr "Strict"
+
+#: wizard.js:298
+msgid "Block uncontrolled search engines"
+msgstr "Block uncontrolled search engines"
+
+#: wizard.js:299
+msgid "Blocks search engines that cannot enforce SafeSearch at DNS level (e.g. Yandex, Baidu, Startpage, Ecosia). Prevents bypassing SafeSearch by switching to an unsupported engine."
+msgstr "Blocks search engines that cannot enforce SafeSearch at DNS level (e.g. Yandex, Baidu, Startpage, Ecosia). Prevents bypassing SafeSearch by switching to an unsupported engine."
 
 #: wizard.js:292
 msgid "Block DNS-over-HTTPS bypass"
