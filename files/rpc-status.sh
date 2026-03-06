@@ -147,6 +147,9 @@ GPIO_PIN=${GPIO_PIN:-}
 UPTIME=$(cat /proc/uptime 2>/dev/null | awk '{print int($1)}')
 UPTIME=${UPTIME:-0}
 
+LAST_UPDATE=$(uci -q get parental_privacy.stats.last_update || echo "Never")
+DURATION=$(uci -q get parental_privacy.stats.update_duration || echo "0s")
+
 # ── DHCP leases ───────────────────────────────────────────────────────────────
 DEVICES=""
 if [ -f /tmp/dhcp.leases ]; then
@@ -249,6 +252,8 @@ cat <<EOF
     "kids_ports": [$KIDS_PORTS],
     "available_ports": [$AVAILABLE_PORTS],
     "devices": [$DEVICES],
+	"last_update": "$LAST_UPDATE",
+	"update_duration": "$DURATION",
     "button_config": {
         "btn0": $BTN0_BOOL,
         "wps": $WPS_BOOL,

@@ -5,6 +5,7 @@
 . /lib/functions.sh
 
 # Paths
+START_TIME=$(date +%s)
 KIDS_CONF_DIR="/etc/dnsmasq.kids.d"
 TMP_DIR="/tmp/blocklist_staging"
 LIVE_LIST="/tmp/dnsmasq.kids.d/master_blocklist.conf"
@@ -72,6 +73,21 @@ if [ -s "$TMP_DIR/master.tmp" ]; then
         echo "Error: Deduplicated list failed syntax test. Rollback initiated."
     fi
 fi
+
+END_TIME=$(date +%s)
+DURATION=$((END_TIME - START_TIME))
+LAST_UPDATE=$(date +"%Y-%m-%d %H:%M:%S")
+
+# Save stats to UCI for the dashboard
+# We use a 'status' section to keep it separate from config
+uci -q batch <<EOI
+  set parental_privacy.stats=status
+  set parental_privacy.stats.last_update='$LAST_UPDATE'
+  set parental_privacy.stats.update_duration='${DURATION}s'
+  commit parental_privacy
+EOI
+
+logger -t "parental-privacy" "Blocklist update complete in ${DURATION} seconds."
 
 # 5. Clean up and Reload dnsmasq
 rm -rf "$TMP_DIR"
