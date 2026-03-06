@@ -32,8 +32,17 @@ LOG="parental-privacy"
 # ── Derive interfaces from UCI ────────────────────────────────────────────────
 VLAN_ID=$(uci -q get parental_privacy.default.vlan_id)
 VLAN_ID=${VLAN_ID:-10}
-LAN_IFACE="br-lan"
-KIDS_IFACE="br-lan.${VLAN_ID}"
+
+# Derive the LAN bridge name from UCI rather than assuming br-lan.
+# network.lan.device holds the bridge device (e.g. br-lan, br-main, …).
+# Fall back to br-lan if the UCI key is absent or the value looks wrong.
+_lan_dev=$(uci -q get network.lan.device 2>/dev/null)
+case "$_lan_dev" in
+    br-*)  LAN_IFACE="$_lan_dev" ;;
+    *)     LAN_IFACE="br-lan"    ;;   # fallback for non-bridge or missing value
+esac
+
+KIDS_IFACE="${LAN_IFACE}.${VLAN_ID}"
 
 # ── Multicast group addresses ─────────────────────────────────────────────────
 MDNS_GROUP="224.0.0.251"

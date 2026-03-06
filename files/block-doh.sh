@@ -10,7 +10,12 @@
 #   block-doh.sh disable  — remove blocking rules
 
 _vlan=$(uci -q get parental_privacy.default.vlan_id)
-IFACE="br-lan.${_vlan:-10}"
+_lan_dev=$(uci -q get network.lan.device 2>/dev/null)
+case "$_lan_dev" in
+    br-*)  _lan_iface="$_lan_dev" ;;
+    *)     _lan_iface="br-lan"    ;;
+esac
+IFACE="${_lan_iface}.${_vlan:-10}"
 
 # ── IPv4 DoH provider IPs ─────────────────────────────────────────────────────
 DOH_IPS4="
@@ -43,39 +48,55 @@ DOH_IPS6="
 # ── nftables ──────────────────────────────────────────────────────────────────
 
 nft_enable() {
-    # IPv4 set + rule
+    # Create a dedicated chain to own all blocking rules.
+    # Flushing this chain later makes the sets unreferenced without any
+    # fragile handle-grep logic in forward.
+    nft add chain inet fw4 doh_block 2>/dev/null
+    nft flush chain inet fw4 doh_block 2>/dev/null
+
+    # IPv4 set + rules
     nft add set inet fw4 doh_block4 { type ipv4_addr\; flags interval\; } 2>/dev/null
     for ip in $DOH_IPS4; do
         nft add element inet fw4 doh_block4 { $ip } 2>/dev/null
     done
-    nft insert rule inet fw4 forward \
-        iifname "$IFACE" ip daddr @doh_block4 tcp dport 443 reject 2>/dev/null
-    nft insert rule inet fw4 forward \
-        iifname "$IFACE" ip daddr @doh_block4 udp dport 443 reject 2>/dev/null
 
-    # IPv6 set + rule
+    # IPv6 set + rules
     nft add set inet fw4 doh_block6 { type ipv6_addr\; flags interval\; } 2>/dev/null
     for ip in $DOH_IPS6; do
         nft add element inet fw4 doh_block6 { $ip } 2>/dev/null
     done
+
+    # All blocking rules live inside our chain — no handle hunting needed
+    nft add rule inet fw4 doh_block \
+        iifname "$IFACE" ip daddr @doh_block4 tcp dport 443 reject
+    nft add rule inet fw4 doh_block \
+        iifname "$IFACE" ip daddr @doh_block4 udp dport 443 reject
+    nft add rule inet fw4 doh_block \
+        iifname "$IFACE" ip6 daddr @doh_block6 tcp dport 443 reject
+    nft add rule inet fw4 doh_block \
+        iifname "$IFACE" ip6 daddr @doh_block6 udp dport 443 reject
+
+    # Single jump rule in forward — one stable, uniquely-named handle to manage
     nft insert rule inet fw4 forward \
-        iifname "$IFACE" ip6 daddr @doh_block6 tcp dport 443 reject 2>/dev/null
-    nft insert rule inet fw4 forward \
-        iifname "$IFACE" ip6 daddr @doh_block6 udp dport 443 reject 2>/dev/null
+        iifname "$IFACE" jump doh_block 2>/dev/null
 }
 
 nft_disable() {
-    # Remove forward chain rules referencing our sets before flushing
-    # Use a handle-based delete to avoid matching unrelated rules
-    for set in doh_block4 doh_block6; do
-        handles=$(nft -a list chain inet fw4 forward 2>/dev/null | \
-            grep "@${set}" | awk '{print $NF}')
-        for h in $handles; do
-            nft delete rule inet fw4 forward handle "$h" 2>/dev/null
-        done
-        nft flush set inet fw4 "$set" 2>/dev/null
-        nft delete set inet fw4 "$set" 2>/dev/null
-    done
+    # Flush our chain first — rules gone, so sets are now unreferenced
+    nft flush chain inet fw4 doh_block 2>/dev/null
+
+    # Remove the single jump rule from forward.
+    # Only one rule to find now, making the grep pattern unambiguous.
+    handle=$(nft -a list chain inet fw4 forward 2>/dev/null | \
+        grep "jump doh_block" | awk '{print $NF}')
+    [ -n "$handle" ] && nft delete rule inet fw4 forward handle "$handle"
+
+    # Sets are now safe to delete
+    nft delete set inet fw4 doh_block4 2>/dev/null
+    nft delete set inet fw4 doh_block6 2>/dev/null
+
+    # Finally remove the chain itself
+    nft delete chain inet fw4 doh_block 2>/dev/null
 }
 
 # ── iptables (legacy fallback) ────────────────────────────────────────────────
