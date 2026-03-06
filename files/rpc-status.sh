@@ -51,11 +51,6 @@ RELAY=${RELAY:-1}
 RELAY_BOOL="true"
 [ "$RELAY" = "0" ] && RELAY_BOOL="false"
 
-ISOLATE=$(uci -q get wireless.kids_wifi.isolate)
-ISOLATE=${ISOLATE:-0}
-ISOLATE_BOOL="false"
-[ "$ISOLATE" = "1" ] && ISOLATE_BOOL="true"
-
 # ── Button config ─────────────────────────────────────────────────────────────
 BTN0=$(uci -q get parental_privacy.default.button_btn0)
 BTN0_BOOL="false"; [ "$BTN0" = "1" ] && BTN0_BOOL="true"
@@ -167,7 +162,6 @@ cat <<EOF
     "safesearch": $SS_BOOL,
     "doh_block": $DOH_BOOL,
     "broadcast_relay": $RELAY_BOOL,
-    "isolate": $ISOLATE_BOOL,
     "devices": [$DEVICES],
     "button_config": {
         "btn0": $BTN0_BOOL,

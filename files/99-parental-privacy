@@ -62,7 +62,6 @@ uci set parental_privacy.default.vlan_id="$KIDS_VLAN"
 # Client isolation off by default — most families want kids devices to reach
 # the Chromecast/printer on the kids VLAN, and broadcast relay handles
 # cross-VLAN discovery anyway.  Power users can enable it from the dashboard.
-uci set parental_privacy.default.wifi_isolate="0"
 # Broadcast relay on by default — enables Chromecast, AirPlay, printers,
 # Steam and Minecraft LAN discovery between the kids VLAN and main LAN.
 uci set parental_privacy.default.broadcast_relay="1"

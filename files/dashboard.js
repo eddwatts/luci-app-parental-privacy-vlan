@@ -388,8 +388,6 @@ async function updateStatus() {
         if (doh) doh.classList.toggle('on', !!data.doh_block);
         const relay = $('sw-relay');
         if (relay) relay.classList.toggle('on', !!data.broadcast_relay);
-        const isolate = $('sw-isolate');
-        if (isolate) isolate.classList.toggle('on', !!data.isolate);
 
         // Load schedule from status (convert range arrays to our format)
         let hasSchedule = false;
@@ -556,7 +554,6 @@ async function saveAll() {
         ssid:          $('wifi-ssid').value,
         password:      $('wifi-pwd').value,
         radio:         document.querySelector('.kn-radio-card.selected input').value,
-        isolate:       $('sw-isolate').classList.contains('on'),
         dns:           selectedDNS === 'custom'
                            ? $('custom-dns-ip').value
                            : selectedDNS,
@@ -726,7 +723,6 @@ return view.extend({
         const ss       = status  ? status.safesearch    : true;
         const doh      = status  ? status.doh_block     : true;
         const relayOn  = status  ? status.broadcast_relay : true;
-        const isolateOn = status  ? status.isolate          : false;
 
         // ── HTML ──────────────────────────────────────────────────────────────
         const html = `
@@ -739,7 +735,7 @@ ${css}
 
 <div class="cbi-section">
   <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem; margin-bottom:1rem;">
-    <p class="cbi-section-descr">${_('All settings for your isolated children\'s WiFi — managed in one place.')}</p>
+    <p class="cbi-section-descr">${_('All settings for your children\'s WiFi — managed in one place.')}</p>
     <label class="kn-pill" onclick="toggleMaster()">
       <div class="kn-pill-track ${active ? 'on' : ''}" id="master-switch"></div>
       <span id="master-label">${active ? _('Kids WiFi Active') : _('Kids WiFi Off')}</span>
@@ -828,13 +824,7 @@ ${css}
         </div>
       </div>
     </div>
-    <div class="kn-toggle-row">
-      <div class="kn-tinfo">
-        <strong>${_('Isolate clients from each other')}</strong>
-        <small>${_('Prevents devices on this network from talking to each other')}</small>
-      </div>
-      <div class="kn-switch ${isolateOn ? 'on' : ''}" id="sw-isolate" onclick="this.classList.toggle('on');markUnsaved()"></div>
-    </div>
+
   </div>
 </div>
 

@@ -99,8 +99,8 @@ msgid "unsaved changes"
 msgstr "unsaved changes"
 
 #: dashboard.js:735
-msgid "All settings for your isolated children's WiFi — managed in one place."
-msgstr "All settings for your isolated children's WiFi — managed in one place."
+msgid "All settings for your children's WiFi — managed in one place."
+msgstr "All settings for your children's WiFi — managed in one place."
 
 #: dashboard.js:744
 msgid "Devices Online"
