@@ -12,9 +12,7 @@
 ## Features
 
 - **NETWORK ISOLATION (VLAN)**
-  - Automatically selects a free VLAN ID (tries 10, 20 … 100) by checking
-    both live kernel interfaces and UCI bridge-vlan config to avoid clashing
-    with existing VLANs (IPTV, VoIP, guest networks, etc.).
+  - The Kids Network defaults to VLAN ID 28, which was chosen deliberately to align with the private subnet range 172.28.x.x — resulting in a router IP of 172.28.28.1 and client addresses in the 172.28.28.0/24 block. This makes the relationship between the VLAN ID and the subnet immediately obvious to anyone reading the router config. The VLAN ID 28 is also essentially unused in consumer networking, where common VLANs for guest networks, IPTV, VoIP, and CCTV typically occupy the lower range (VLAN 10–30). If VLAN 28 is already taken, the installer works down from the high end (80, 90, 100) before moving into the mid-range (40–70), deliberately staying away from the low block where those common services live and leaving those IDs free for their intended use. Only if all preferred candidates are exhausted does the installer try 15 and 25 — non-round numbers unlikely to be in use on any network. If none of the 11 candidates are available, the install aborts with a clear error rather than silently claiming a VLAN that may already be in use, protecting the integrity of your existing network configuration.
   - Detects all physical DSA LAN ports dynamically and tags them — no
     hardcoded port names.
   - Creates a br-lan.<vlan> subinterface with a dedicated subnet in the
