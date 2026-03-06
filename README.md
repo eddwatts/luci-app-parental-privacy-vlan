@@ -147,6 +147,8 @@ When the Kids Network is removed (via the dashboard Remove button or `opkg remov
 
 ![Dashboard](docs/screenshot-dashboard.svg)
 
+![Dashboard in bridge-mode](docs/screenshot-dashboard-bridge.svg)
+
 The main dashboard shows live device count, active SSID, current DNS resolver, and next schedule event — plus collapsible panels for every setting. A bridge-mode banner appears automatically on Broadcom hardware.
 
 ### Bedtime Schedule
