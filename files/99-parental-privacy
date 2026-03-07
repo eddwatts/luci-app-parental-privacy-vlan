@@ -369,6 +369,31 @@ if uci get dhcp.kids_dns >/dev/null 2>&1; then
     fi
 fi
 
+# ── 3b. Kids dnsmasq DNS query logging (RAM-only, privacy-safe) ───────────────
+# Direct query logs to a dedicated RAM file — NOT the system syslog — so that
+# high-volume DNS queries never pollute logread output.  The file lives in
+# /tmp/ (tmpfs) so it is wiped automatically on every reboot.  The dashboard
+# polls rpc-get-logs and keeps only the last 50 entries in the UI.
+#
+# option logfacility  → dnsmasq writes directly to this file (not syslog)
+# option logqueries   → emit a query[] line for every DNS lookup
+#
+# We only set these when the kids_dns instance exists and the values are not
+# already correct, so repeated runs of this script are idempotent.
+if uci get dhcp.kids_dns >/dev/null 2>&1; then
+    EXISTING_LOGFAC=$(uci -q get dhcp.kids_dns.logfacility 2>/dev/null)
+    if [ "$EXISTING_LOGFAC" != "/tmp/dnsmasq-kids.log" ]; then
+        uci set dhcp.kids_dns.logfacility='/tmp/dnsmasq-kids.log'
+        logger -t parental-privacy "Set kids dnsmasq logfacility to /tmp/dnsmasq-kids.log"
+    fi
+
+    EXISTING_LOGQ=$(uci -q get dhcp.kids_dns.logqueries 2>/dev/null)
+    if [ "$EXISTING_LOGQ" != "1" ]; then
+        uci set dhcp.kids_dns.logqueries='1'
+        logger -t parental-privacy "Enabled kids dnsmasq log-queries"
+    fi
+fi
+
 # ── 4. Firewall ──────────────────────────────────────────────────────────────
 if ! uci get firewall.kids_zone >/dev/null 2>&1; then
     # Zone — no masq required, WAN zone handles NAT for all routed traffic

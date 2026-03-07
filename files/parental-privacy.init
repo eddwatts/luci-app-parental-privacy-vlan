@@ -73,6 +73,13 @@ stop() {
 
     # Remove SafeSearch dnsmasq config and reload dnsmasq.
     /usr/share/parental-privacy/safesearch.sh disable
+
+    # Wipe the RAM-only DNS query log so no browsing history survives a
+    # service stop or router shutdown.  The file lives in /tmp/ (tmpfs) so
+    # it would disappear on reboot anyway, but explicit removal here ensures
+    # it is gone immediately when the service is stopped manually.
+    rm -f /tmp/dnsmasq-kids.log
+    logger -t parental-privacy "Removed kids DNS query log."
 }
 
 reload() {
