@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-parental-privacy-vlan
-PKG_VERSION:=1.2.0
+PKG_VERSION:=1.4.0
 PKG_RELEASE:=1
 PKG_SOURCE_PROTO:=git
 PKG_SOURCE_URL:=https://github.com/eddwatts/luci-app-parental-privacy-vlan.git
@@ -169,6 +169,8 @@ define Package/luci-app-parental-privacy-vlan/install
 	# ── Shell scripts ─────────────────────────────────────────────────────────
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/block-doh.sh \
 		$(1)/usr/share/parental-privacy/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/block-dot.sh \
+		$(1)/usr/share/parental-privacy/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/broadcast-relay.sh \
 		$(1)/usr/share/parental-privacy/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/safesearch.sh \
@@ -177,6 +179,8 @@ define Package/luci-app-parental-privacy-vlan/install
 		$(1)/usr/share/parental-privacy/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/remove.sh \
 		$(1)/usr/share/parental-privacy/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/pause-device.sh \
+		$(1)/usr/share/parental-privacy/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/rpc-status.sh \
 		$(1)/usr/share/parental-privacy/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/rpc-apply.sh \
@@ -184,6 +188,16 @@ define Package/luci-app-parental-privacy-vlan/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/rpc-extend.sh \
 		$(1)/usr/share/parental-privacy/
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/rpc-remove.sh \
+		$(1)/usr/share/parental-privacy/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/rpc-blocklist.sh \
+		$(1)/usr/share/parental-privacy/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/rpc-pause.sh \
+		$(1)/usr/share/parental-privacy/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/rpc-list-paused.sh \
+		$(1)/usr/share/parental-privacy/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/rpc-get-logs.sh \
+		$(1)/usr/share/parental-privacy/
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/files/update-blocklists.sh \
 		$(1)/usr/share/parental-privacy/
 
 	# ── rpcd dispatcher ───────────────────────────────────────────────────────
@@ -208,6 +222,9 @@ define Package/luci-app-parental-privacy-vlan/install
 	# ── ACL ───────────────────────────────────────────────────────────────────
 	$(INSTALL_DATA) $(PKG_BUILD_DIR)/files/luci-app-parental-privacy-vlan.json \
 		$(1)/usr/share/rpcd/acl.d/
+	# ── DNS blocklists catalog ────────────────────────────────────────────────────
+	$(INSTALL_DATA) $(PKG_BUILD_DIR)/files/blocklists.json \
+		$(1)/usr/share/parental-privacy/
 
 	# ── Translations ──────────────────────────────────────────────────────────
 	$(if $(wildcard $(PKG_BUILD_DIR)/po/*.lmo), \
