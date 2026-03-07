@@ -35,6 +35,7 @@ Automatically activated when the installer detects a Broadcom WiFi chip (brcmfma
 - A persistent warning banner appears in the dashboard and wizard when bridge mode is active
 
 **Single-NAT**
+
 The WAN zone handles masquerade for all traffic; the kids zone never double-NATs, ensuring consoles achieve NAT Type 2 (Moderate) or better.
 
 ### DNS & Content Filtering
