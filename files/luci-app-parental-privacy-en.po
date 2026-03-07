@@ -819,3 +819,49 @@ msgstr "Blocklist update running — check status in a minute."
 #: dashboard.js:781
 msgid "Update failed: "
 msgstr "Update failed: "
+
+#: dashboard.js — DNS Activity Log section
+msgid "Recent DNS Activity"
+msgstr "Recent DNS Activity"
+
+msgid "Last 50 queries · RAM only · auto-cleared on reboot"
+msgstr "Last 50 queries · RAM only · auto-cleared on reboot"
+
+msgid "Queries are logged to /tmp/dnsmasq-kids.log (RAM only). The log never touches flash storage and is wiped automatically on reboot or service stop."
+msgstr "Queries are logged to /tmp/dnsmasq-kids.log (RAM only). The log never touches flash storage and is wiped automatically on reboot or service stop."
+
+msgid "Time"
+msgstr "Time"
+
+msgid "Device"
+msgstr "Device"
+
+msgid "Domain"
+msgstr "Domain"
+
+msgid "No queries recorded yet."
+msgstr "No queries recorded yet."
+
+msgid "Loading…"
+msgstr "Loading…"
+
+msgid "Refresh"
+msgstr "Refresh"
+
+msgid "Clear Log"
+msgstr "Clear Log"
+
+msgid "Auto-refreshes every 20 seconds."
+msgstr "Auto-refreshes every 20 seconds."
+
+msgid "Clearing…"
+msgstr "Clearing…"
+
+msgid "DNS activity log cleared."
+msgstr "DNS activity log cleared."
+
+msgid "Failed to clear log."
+msgstr "Failed to clear log."
+
+msgid "Log cleared."
+msgstr "Log cleared."

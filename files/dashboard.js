@@ -58,6 +58,19 @@ const callListPaused = rpc.declare({
     expect: {}
 });
 
+const callGetLogs = rpc.declare({
+    object: 'parental-privacy',
+    method: 'get_logs',
+    expect: {}
+});
+
+const callClearLogs = rpc.declare({
+    object: 'parental-privacy',
+    method: 'get_logs',
+    params: ['data'],
+    expect: {}
+});
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MAX_RANGES_PER_DAY = 4;
@@ -70,6 +83,7 @@ let primarySSID  = '';
 let suggestedSSID = '';
 let statusTimer  = null;
 let toastTimer   = null;
+let logsTimer    = null;
 
 // Initialise schedule with empty arrays
 DAYS.forEach(d => { schedule[d] = []; });
@@ -388,6 +402,61 @@ function updateAccessStat(internetBlocked) {
 }
 
 
+// ── DNS Activity Log ─────────────────────────────────────────────────────────
+// Polls rpc get_logs every 20 seconds and renders a table of the last 50
+// DNS queries made by kids-network devices.  The log file lives entirely in
+// RAM (/tmp/dnsmasq-kids.log) and is never written to flash.
+
+async function updateActivityLog() {
+    const box = document.getElementById('dns-log-tbody');
+    if (!box) return;
+
+    let data;
+    try { data = await callGetLogs(); }
+    catch(e) { return; }
+
+    if (!data || !Array.isArray(data.logs)) return;
+
+    if (data.logs.length === 0) {
+        box.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;font-style:italic;padding:.5rem 0">' +
+            _('No queries recorded yet.') + '</td></tr>';
+        return;
+    }
+
+    // Build rows newest-first (tail -n returns oldest first)
+    const rows = data.logs.slice().reverse().map(entry => {
+        // Resolve client IP to friendly name using device list cached on window
+        const name = (window._kidsDeviceMap && window._kidsDeviceMap[entry.client])
+            ? window._kidsDeviceMap[entry.client]
+            : entry.client;
+        const typeClass = entry.type && entry.type.includes('AAAA') ? 'log-ipv6' : 'log-ipv4';
+        return `<tr>
+            <td style="white-space:nowrap;font-size:.8rem;color:#888">${entry.time || ''}</td>
+            <td style="font-size:.82rem">${name}</td>
+            <td style="font-size:.82rem;word-break:break-all">${entry.domain || ''}</td>
+        </tr>`;
+    }).join('');
+
+    box.innerHTML = rows;
+}
+
+async function clearActivityLog() {
+    const btn = document.getElementById('dns-log-clear-btn');
+    if (btn) { btn.disabled = true; btn.textContent = _('Clearing…'); }
+    try {
+        await callClearLogs({ action: 'clear' });
+        const box = document.getElementById('dns-log-tbody');
+        if (box) box.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;font-style:italic;padding:.5rem 0">' +
+            _('Log cleared.') + '</td></tr>';
+        showToast(_('DNS activity log cleared.'));
+    } catch(e) {
+        showToast(_('Failed to clear log.'));
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🗑 ' + _('Clear Log'); }
+    }
+}
+
+
 async function updateStatus() {
     let data;
     try { data = await callStatus(); }
@@ -456,6 +525,15 @@ async function updateStatus() {
     }
 
     updateDeviceList(data.devices || []);
+
+    // Cache IP → hostname map for the DNS activity log renderer
+    window._kidsDeviceMap = {};
+    (data.devices || []).forEach(d => {
+        if (d.ip && d.name && d.name !== 'Unknown') {
+            window._kidsDeviceMap[d.ip] = d.name;
+        }
+    });
+
     updateScheduleStat();
     updateAccessStat(!!data.internet_blocked);
     loadBlocklistState(data);
@@ -1448,6 +1526,41 @@ ${css}
 </div>
 
 
+<!-- Recent DNS Activity -->
+<div class="cbi-section">
+  <h3 class="cbi-section-title">${_('Recent DNS Activity')}
+    <span class="cbi-section-descr">${_('Last 50 queries · RAM only · auto-cleared on reboot')}</span>
+  </h3>
+  <div class="cbi-section-node">
+    <div class="alert alert-info" style="font-size:.82rem;margin-bottom:.75rem;">
+      ${_('Queries are logged to /tmp/dnsmasq-kids.log (RAM only). The log never touches flash storage and is wiped automatically on reboot or service stop.')}
+    </div>
+    <div style="overflow-x:auto;">
+      <table style="width:100%;border-collapse:collapse;font-size:.85rem;" id="dns-log-table">
+        <thead>
+          <tr style="border-bottom:2px solid #ddd;">
+            <th style="text-align:left;padding:.3rem .5rem;white-space:nowrap">${_('Time')}</th>
+            <th style="text-align:left;padding:.3rem .5rem">${_('Device')}</th>
+            <th style="text-align:left;padding:.3rem .5rem">${_('Domain')}</th>
+          </tr>
+        </thead>
+        <tbody id="dns-log-tbody">
+          <tr><td colspan="3" style="text-align:center;color:#aaa;font-style:italic;padding:.5rem 0">${_('Loading…')}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:.6rem;display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;">
+      <button class="cbi-button" id="dns-log-refresh-btn" onclick="updateActivityLog()" style="font-size:.82rem;padding:.25rem .75rem;">
+        &#8635; ${_('Refresh')}
+      </button>
+      <button class="cbi-button cbi-button-remove" id="dns-log-clear-btn" onclick="clearActivityLog()" style="font-size:.82rem;padding:.25rem .75rem;">
+        🗑 ${_('Clear Log')}
+      </button>
+      <span style="font-size:.78rem;color:#888">${_('Auto-refreshes every 20 seconds.')}</span>
+    </div>
+  </div>
+</div>
+
 <!-- Activity Log -->
 <div class="cbi-section">
   <h3 class="cbi-section-title">${_('Activity Log')}</h3>
@@ -1491,6 +1604,7 @@ ${css}
     close() {
         if (statusTimer) { clearInterval(statusTimer); statusTimer = null; }
         if (toastTimer)  { clearTimeout(toastTimer);   toastTimer  = null; }
+        if (logsTimer)   { clearInterval(logsTimer);   logsTimer   = null; }
     },
 
     // Use addFooter to run post-DOM setup instead
@@ -1503,6 +1617,10 @@ ${css}
         updateStatus();
         statusTimer = setInterval(updateStatus, 30000);
 
+        // Start DNS activity log polling (every 20 s)
+        updateActivityLog();
+        logsTimer = setInterval(updateActivityLog, 20000);
+
         // Expose functions to inline onclick handlers
         Object.assign(window, {
             toggleMaster, pickRadio, pickDNS, updateCustomPreview,
@@ -1510,7 +1628,8 @@ ${css}
             removeRange, updateRange, grantExtension, saveAll,
             removeNetwork, markUnsaved, toggleBlock, togglePause,
             updateAccessStat, toggleBlocklist, addCustomBlocklist,
-            removeCustomBlocklist, loadBlocklistCatalog, triggerBlocklistUpdate
+            removeCustomBlocklist, loadBlocklistCatalog, triggerBlocklistUpdate,
+            updateActivityLog, clearActivityLog
         });
 
         // Load blocklist catalog from GitHub after DOM is ready
