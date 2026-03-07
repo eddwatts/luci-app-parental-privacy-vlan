@@ -34,6 +34,17 @@ Automatically activated when the installer detects a Broadcom WiFi chip (brcmfma
 - Wired isolation is optional: assign physical LAN ports to the kids network from the dashboard or wizard; unassigned ports remain on your main network
 - A persistent warning banner appears in the dashboard and wizard when bridge mode is active
 
+**Single-NAT**
+The WAN zone handles masquerade for all traffic; the kids zone never double-NATs, ensuring consoles achieve NAT Type 2 (Moderate) or better.
+
+### DNS & Content Filtering
+- DNS Interception: Unlike standard setups that rely on DHCP options, this project uses firewall DNAT rules to intercept all DNS queries (TCP/UDP 53) for both IPv4 and IPv6. This forces all requests through a local, filtered dnsmasq instance even if a device has manual DNS settings.
+- Local Filtering Instance: Uses a dedicated dnsmasq configuration directory (/etc/dnsmasq.kids.d) to apply local overrides and blocklists before forwarding to family-safe upstreams like Cloudflare Families or OpenDNS.
+- SafeSearch Enforcement: Forces SafeSearch on Google, Bing, YouTube (Moderate or Strict), DuckDuckGo, Brave, and Pixabay via local dnsmasq CNAME and address records.
+- DoH & DoT Blocking: Prevents browsers and apps from bypassing filters via encrypted DNS-over-HTTPS (Port 443) or DNS-over-TLS (Port 853) using nftables to block known provider IPs.
+- App & VPN Blocking: Includes built-in toggles to block undesirable apps like TikTok and Snapchat, as well as common VPN protocols (OpenVPN, WireGuard, IPSec) to ensure the network boundary is respected.
+
+
 ### Wireless
 
 - Creates VAPs on all detected bands: 2.4 GHz (WPA2), 5 GHz (WPA2), and 6 GHz (WPA3/SAE) — all sharing the same SSID and key
@@ -47,23 +58,6 @@ Automatically activated when the installer detects a Broadcom WiFi chip (brcmfma
 - Specific ACCEPT rules for DHCP (UDP 67), DNS (TCP/UDP 53), ICMP, and UPnP (UDP 1900) so miniupnpd can serve consoles
 - DNS interception: all DNS queries (TCP/UDP 53) are redirected back to the router via DNAT for both IPv4 and IPv6, preventing bypass
 - Internet schedule block: installs a `kids→wan` REJECT rule at cron time rather than toggling radios — no disruptive WiFi restart, wired devices blocked identically to wireless ones
-
-### DNS filtering
-
-- DHCP Option 6 pushes a family-safe DNS (default: Cloudflare 1.1.1.3 / 1.0.0.3 for Families) to every kids device
-- Configurable from the wizard; choices include Cloudflare Families, CleanBrowsing Family, and OpenDNS FamilyShield
-- Primary LAN DNS is also configurable (Quad9, Cloudflare, AdGuard, ISP)
-
-### SafeSearch enforcement
-
-- Forces SafeSearch on Google (all regional domains), Bing, YouTube Restricted Mode, and DuckDuckGo via dnsmasq CNAME records
-- Works at DNS level — no DPI, no SSL inspection, no accounts needed
-
-### DNS-over-HTTPS (DoH) blocking
-
-- Prevents browsers from silently bypassing the DNS filter using encrypted DNS (DoH) on port 443
-- Blocks known DoH provider IPs (Cloudflare, Google, Quad9, AdGuard, OpenDNS, CleanBrowsing) for both TCP and UDP (HTTP/3)
-- Uses nftables sets on OpenWrt 22.03+ with an iptables fallback for older kernels; IPv4 and IPv6 providers both covered
 
 ### Time scheduling
 
