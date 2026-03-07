@@ -127,6 +127,7 @@ async function applyAll() {
             youtube_mode: $('wiz_ytmode') ? $('wiz_ytmode').value : 'moderate',
             block_search: $('wiz_blocksearch') ? $('wiz_blocksearch').checked : false,
             doh:          $('wiz_doh').checked,
+            dot:          $('wiz_dot').checked,
 			vpn_block:    $('wiz_vpn_block').checked,
 			undesirable:  $('wiz_undesirable').checked
         }
@@ -390,6 +391,13 @@ ${css}
         <div>
           <strong>${_('Block DNS-over-HTTPS bypass')}</strong><br>
           <small>${_('Prevents browsers silently bypassing the DNS filter using encrypted DNS. Recommended.')}</small>
+        </div>
+      </div>
+      <div class="pp-toggle-row">
+        <input type="checkbox" id="wiz_dot" checked>
+        <div>
+          <strong>${_('Block DNS-over-TLS bypass')}</strong><br>
+          <small>${_('Blocks port 853 so devices cannot use encrypted DNS-over-TLS to bypass the filter. Recommended.')}</small>
         </div>
       </div>
 

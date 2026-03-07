@@ -15,7 +15,10 @@
 #   parental_privacy.default.youtube_mode   moderate|strict  (default: moderate)
 #   parental_privacy.default.block_search   0|1              (default: 0)
 
-DNSMASQ_CONF="/etc/dnsmasq.d/safesearch.conf"
+DNSMASQ_CONF="/tmp/dnsmasq.kids.d/safesearch.conf"
+# Persistent copy so the file survives reboots — parental-privacy.init
+# copies /etc/dnsmasq.kids.d/ into /tmp/dnsmasq.kids.d/ on startup.
+DNSMASQ_CONF_PERSIST="/etc/dnsmasq.kids.d/safesearch.conf"
 
 # ── Google ───────────────────────────────────────────────────────────────────
 # forcesafesearch.google.com is Google's official SafeSearch enforcement host.
@@ -230,19 +233,25 @@ EOF
 }
 
 enable_safesearch() {
+    mkdir -p /tmp/dnsmasq.kids.d
+    mkdir -p /etc/dnsmasq.kids.d
     write_conf
+    # Persist to flash so the file survives a reboot
+    cp "$DNSMASQ_CONF" "$DNSMASQ_CONF_PERSIST"
     /etc/init.d/dnsmasq restart
     logger -t parental-privacy "SafeSearch enabled (Google, Bing, YouTube ${YOUTUBE_MODE}, DuckDuckGo, Brave, Pixabay; block_search=${BLOCK_SEARCH})"
 }
 
 disable_safesearch() {
     rm -f "$DNSMASQ_CONF"
+    rm -f "$DNSMASQ_CONF_PERSIST"
     /etc/init.d/dnsmasq restart
     logger -t parental-privacy "SafeSearch disabled"
 }
 
 status_safesearch() {
-    if [ -f "$DNSMASQ_CONF" ]; then
+    # Check both locations — live RAM copy takes precedence
+    if [ -f "$DNSMASQ_CONF" ] || [ -f "$DNSMASQ_CONF_PERSIST" ]; then
         echo "enabled"
     else
         echo "disabled"

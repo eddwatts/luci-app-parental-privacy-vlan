@@ -261,7 +261,23 @@ if [ "$STAGE" = "kids" ]; then
     set_wifi "encryption" "psk2"
     set_wifi "disabled"   "0"
 
-    [ -n "$DNS" ] && uci set dhcp.kids.dhcp_option="$(dns_option "$DNS")"
+    # Update the kids dnsmasq upstream servers — DHCP already points devices
+    # at the router IP so queries come through the kids dnsmasq instance first.
+    # Never push the provider IP via DHCP directly; that bypasses all filtering.
+    if [ -n "$DNS" ]; then
+        case "$DNS" in
+            1.1.1.3)        PRI="1.1.1.3";        SEC="1.0.0.3"        ;;
+            185.228.168.9)  PRI="185.228.168.9";   SEC="185.228.169.9"  ;;
+            208.67.222.123) PRI="208.67.222.123";  SEC="208.67.220.123" ;;
+            9.9.9.11)       PRI="9.9.9.11";        SEC="149.112.112.11" ;;
+            94.140.14.15)   PRI="94.140.14.15";    SEC="94.140.15.16"   ;;
+            *)              PRI="$DNS";             SEC=""               ;;
+        esac
+        uci -q delete dhcp.kids_dns.server
+        uci add_list dhcp.kids_dns.server="$PRI"
+        [ -n "$SEC" ] && uci add_list dhcp.kids_dns.server="$SEC"
+        uci set parental_privacy.default.kids_dns="$DNS"
+    fi
 
     if [ -n "$SS" ]; then
         uci set parental_privacy.default.safesearch="$SS"
@@ -279,6 +295,13 @@ if [ "$STAGE" = "kids" ]; then
         uci set parental_privacy.default.doh_block="$DOH"
         [ "$DOH" = "1" ] && /usr/share/parental-privacy/block-doh.sh enable \
                          || /usr/share/parental-privacy/block-doh.sh disable
+    fi
+
+    DOT=$(json_bool '@.dot')
+    if [ -n "$DOT" ]; then
+        uci set parental_privacy.default.dot_block="$DOT"
+        [ "$DOT" = "1" ] && /usr/share/parental-privacy/block-dot.sh enable \
+                         || /usr/share/parental-privacy/block-dot.sh disable
     fi
 
     uci commit wireless
@@ -375,8 +398,23 @@ if [ -n "$UNDESIRABLE" ]; then
     # This will be picked up by safesearch.sh when called below
 fi
 # ── DNS ───────────────────────────────────────────────────────────────────────
+# Update the kids dnsmasq upstream servers — DHCP already advertises the router
+# IP as DNS so devices query the local kids dnsmasq, not the provider directly.
 DNS=$(json_get '@.dns')
-[ -n "$DNS" ] && uci set dhcp.kids.dhcp_option="$(dns_option "$DNS")"
+if [ -n "$DNS" ]; then
+    case "$DNS" in
+        1.1.1.3)        PRI="1.1.1.3";        SEC="1.0.0.3"        ;;
+        185.228.168.9)  PRI="185.228.168.9";   SEC="185.228.169.9"  ;;
+        208.67.222.123) PRI="208.67.222.123";  SEC="208.67.220.123" ;;
+        9.9.9.11)       PRI="9.9.9.11";        SEC="149.112.112.11" ;;
+        94.140.14.15)   PRI="94.140.14.15";    SEC="94.140.15.16"   ;;
+        *)              PRI="$DNS";             SEC=""               ;;
+    esac
+    uci -q delete dhcp.kids_dns.server
+    uci add_list dhcp.kids_dns.server="$PRI"
+    [ -n "$SEC" ] && uci add_list dhcp.kids_dns.server="$SEC"
+    uci set parental_privacy.default.kids_dns="$DNS"
+fi
 
 # ── SafeSearch ────────────────────────────────────────────────────────────────
 SS=$(json_bool '@.safesearch')
@@ -412,6 +450,14 @@ DOH=$(json_bool '@.doh')
     uci set parental_privacy.default.doh_block="$DOH"
     [ "$DOH" = "1" ] && /usr/share/parental-privacy/block-doh.sh enable \
                      || /usr/share/parental-privacy/block-doh.sh disable
+}
+
+# ── DoT blocking ──────────────────────────────────────────────────────────────
+DOT=$(json_bool '@.dot')
+[ -n "$DOT" ] && {
+    uci set parental_privacy.default.dot_block="$DOT"
+    [ "$DOT" = "1" ] && /usr/share/parental-privacy/block-dot.sh enable \
+                     || /usr/share/parental-privacy/block-dot.sh disable
 }
 
 # ── Broadcast relay (cross-VLAN mDNS/SSDP/gaming/printing) ───────────────────

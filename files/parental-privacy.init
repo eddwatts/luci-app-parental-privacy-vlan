@@ -16,19 +16,38 @@ EXTRA_COMMANDS="reload"
 EXTRA_HELP="        reload  Re-apply all parental-privacy rules (DoH, SafeSearch)"
 
 start() {
+    # Ensure the kids dnsmasq confdir exists in RAM on every boot —
+    # dnsmasq will fail to start if its configured confdir is missing.
+    mkdir -p "/tmp/dnsmasq.kids.d"
+
+    # Restore blocklist from flash if the RAM copy is gone (e.g. after reboot)
+    if [ -f "$BACKUP_PATH" ] && [ ! -f "$LIVE_PATH" ]; then
+        cp "$BACKUP_PATH" "$LIVE_PATH"
+        logger -t "parental-privacy" "Restored DNS blocklist from flash backup."
+    fi
+
+    # Restore SafeSearch conf from flash if the RAM copy is gone (e.g. after reboot).
+    # safesearch.sh enable also does this, but restoring directly here avoids
+    # an unnecessary dnsmasq restart when the conf is already up to date.
     local ss
     ss=$(uci -q get parental_privacy.default.safesearch)
-    [ "${ss:-1}" = "1" ] && /usr/share/parental-privacy/safesearch.sh enable
+    if [ "${ss:-1}" = "1" ]; then
+        if [ ! -f "/tmp/dnsmasq.kids.d/safesearch.conf" ] && \
+           [ -f "/etc/dnsmasq.kids.d/safesearch.conf" ]; then
+            cp "/etc/dnsmasq.kids.d/safesearch.conf" "/tmp/dnsmasq.kids.d/safesearch.conf"
+            logger -t "parental-privacy" "Restored SafeSearch conf from flash backup."
+        else
+            /usr/share/parental-privacy/safesearch.sh enable
+        fi
+    fi
 
     local doh
     doh=$(uci -q get parental_privacy.default.doh_block)
     [ "${doh:-1}" = "1" ] && /usr/share/parental-privacy/block-doh.sh enable
 
-	if [ -f "$BACKUP_PATH" ] && [ ! -f "$LIVE_PATH" ]; then
-        mkdir -p "/tmp/dnsmasq.kids.d"
-        cp "$BACKUP_PATH" "$LIVE_PATH"
-        logger -t "parental-privacy" "Restored DNS blocklist from flash backup."
-    fi
+    local dot
+    dot=$(uci -q get parental_privacy.default.dot_block)
+    [ "${dot:-1}" = "1" ] && /usr/share/parental-privacy/block-dot.sh enable
 
 	if [ -f "$BACKUP_LIST" ]; then
         local last_mod=$(stat -c %Y "$BACKUP_LIST")
@@ -48,6 +67,9 @@ start() {
 stop() {
     # Remove DoH blocking rules before the firewall/network interfaces go away.
     /usr/share/parental-privacy/block-doh.sh disable
+
+    # Remove DoT blocking rules.
+    /usr/share/parental-privacy/block-dot.sh disable
 
     # Remove SafeSearch dnsmasq config and reload dnsmasq.
     /usr/share/parental-privacy/safesearch.sh disable

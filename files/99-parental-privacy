@@ -148,7 +148,8 @@ uci delete parental_privacy.default 2>/dev/null || true
 uci commit parental_privacy 2>/dev/null || true
 
 echo "==> Removing parental-privacy runtime files..."
-rm -f /etc/dnsmasq.d/safesearch.conf 2>/dev/null || true
+rm -f /etc/dnsmasq.d/safesearch.conf       2>/dev/null || true
+rm -f /etc/dnsmasq.kids.d/safesearch.conf  2>/dev/null || true
 
 echo "==> Reloading services..."
 /etc/init.d/network restart
@@ -352,7 +353,51 @@ if ! uci get dhcp.kids >/dev/null 2>&1; then
     uci set dhcp.kids.limit='150'
     uci set dhcp.kids.leasetime='1h'
     uci add_list dhcp.kids.dhcp_option="3,${KIDS_IP}"
-    uci add_list dhcp.kids.dhcp_option="6,1.1.1.3,1.0.0.3"
+    # Point devices at the router IP — queries go through the kids dnsmasq
+    # instance which applies blocklists + SafeSearch, then forwards upstream
+    # to the family-safe provider.  Pushing the provider IP directly would
+    # bypass all local filtering, including NAT hijacking.
+    uci add_list dhcp.kids.dhcp_option="6,${KIDS_IP}"
+fi
+
+# ── Named dnsmasq instance for kids ──────────────────────────────────────────
+# A dedicated dnsmasq process bound only to the kids interface IP on port 53.
+# It loads the blocklist confdir and SafeSearch CNAMEs, then forwards upstream
+# to the chosen family-safe DNS provider.
+#
+# Flow: kid device → router:53 (this instance) → blocklist/SafeSearch check
+#       → upstream family-safe DNS provider
+#
+# The NAT hijacking rules (kids_dns_intercept) already redirect any port-53
+# traffic from the kids zone back to the router — because DHCP now advertises
+# the router IP as DNS, that traffic lands on THIS instance, not the main one.
+if ! uci get dhcp.kids_dns >/dev/null 2>&1; then
+    uci set dhcp.kids_dns=dnsmasq
+    uci set dhcp.kids_dns.domainneeded='1'
+    uci set dhcp.kids_dns.boguspriv='1'
+    uci set dhcp.kids_dns.localise_queries='1'
+    uci set dhcp.kids_dns.rebind_protection='1'
+    uci set dhcp.kids_dns.local='/lan/'
+    uci set dhcp.kids_dns.domain='lan'
+    uci set dhcp.kids_dns.expandhosts='1'
+    uci set dhcp.kids_dns.nonegcache='0'
+    uci set dhcp.kids_dns.authoritative='1'
+    uci set dhcp.kids_dns.readethers='1'
+    uci set dhcp.kids_dns.leasefile='/tmp/dhcp.kids.leases'
+    # noresolv=1: do not use /etc/resolv.conf — we set upstream servers explicitly
+    uci set dhcp.kids_dns.noresolv='1'
+    # Default upstream: Cloudflare for Families (malware + adult content blocking)
+    uci add_list dhcp.kids_dns.server='1.1.1.3'
+    uci add_list dhcp.kids_dns.server='1.0.0.3'
+    # Serve only the kids interface — never answer on loopback or main LAN
+    uci set dhcp.kids_dns.notinterface='loopback'
+    uci add_list dhcp.kids_dns.interface='kids'
+    # Load blocklists and SafeSearch CNAMEs from the kids confdir
+    uci set dhcp.kids_dns.confdir='/tmp/dnsmasq.kids.d'
+    # Bind exclusively to the kids interface IP so it never conflicts with
+    # the main dnsmasq instance which listens on the LAN IP.
+    uci set dhcp.kids_dns.listen_address="${KIDS_IP}"
+    uci set dhcp.kids_dns.ndhosts='0'
 fi
 
 # ── 4. Firewall ──────────────────────────────────────────────────────────────
@@ -442,6 +487,19 @@ if ! uci get firewall.kids_zone >/dev/null 2>&1; then
     uci set firewall.kids_dns_intercept6.proto='tcp udp'
     uci set firewall.kids_dns_intercept6.target='DNAT'
     uci set firewall.kids_dns_intercept6.family='ipv6'
+
+    # Block DNS-over-TLS (DoT) on port 853 — prevents devices using encrypted
+    # DNS directly to an external resolver (e.g. Cloudflare 1.1.1.1:853,
+    # Google 8.8.8.8:853) which would bypass all local filtering entirely.
+    # On by default; togglable from the dashboard alongside DoH blocking.
+    uci set firewall.kids_block_dot=rule
+    uci set firewall.kids_block_dot.name='Block-Kids-DoT'
+    uci set firewall.kids_block_dot.src='kids'
+    uci set firewall.kids_block_dot.dest='wan'
+    uci set firewall.kids_block_dot.dest_port='853'
+    uci set firewall.kids_block_dot.proto='tcp udp'
+    uci set firewall.kids_block_dot.target='REJECT'
+    uci set parental_privacy.default.dot_block='1'
 
     # Allow ICMP
     uci set firewall.kids_icmp=rule

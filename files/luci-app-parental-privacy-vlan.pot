@@ -287,6 +287,22 @@ msgstr ""
 msgid "Blocks known DoH providers so browsers cannot silently bypass the DNS filter"
 msgstr ""
 
+#: dashboard.js:898
+msgid "Block DNS-over-TLS (DoT) bypass"
+msgstr ""
+
+#: dashboard.js:899
+msgid "Blocks port 853 so devices cannot use encrypted DNS-over-TLS to bypass the DNS filter"
+msgstr ""
+
+#: wizard.js:296
+msgid "Block DNS-over-TLS bypass"
+msgstr ""
+
+#: wizard.js:297
+msgid "Blocks port 853 so devices cannot use encrypted DNS-over-TLS to bypass the filter. Recommended."
+msgstr ""
+
 #: dashboard.js:901
 msgid "SafeSearch enforcement"
 msgstr ""

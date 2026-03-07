@@ -81,6 +81,11 @@ DOH=${DOH:-1}
 DOH_BOOL="true"
 [ "$DOH" = "0" ] && DOH_BOOL="false"
 
+DOT=$(uci -q get parental_privacy.default.dot_block)
+DOT=${DOT:-1}
+DOT_BOOL="true"
+[ "$DOT" = "0" ] && DOT_BOOL="false"
+
 RELAY=$(uci -q get parental_privacy.default.broadcast_relay)
 RELAY=${RELAY:-1}
 RELAY_BOOL="true"
@@ -246,6 +251,7 @@ cat <<EOF
     "uptime": $UPTIME,
     "safesearch": $SS_BOOL,
     "doh_block": $DOH_BOOL,
+    "dot_block": $DOT_BOOL,
 	"vpn_block": $VPN_BOOL,
     "undesirable": $UNDES_BOOL,
     "broadcast_relay": $RELAY_BOOL,

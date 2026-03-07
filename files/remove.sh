@@ -145,10 +145,11 @@ uci delete network.kids_vlan      2>/dev/null
 
 # ── DHCP ─────────────────────────────────────────────────────────────────────
 uci delete dhcp.kids              2>/dev/null
+uci delete dhcp.kids_dns          2>/dev/null
 
 # ── Firewall ─────────────────────────────────────────────────────────────────
 for key in kids_zone kids_dhcp kids_dns kids_dns_intercept kids_dns_intercept6 \
-           kids_icmp kids_forward kids_upnp \
+           kids_icmp kids_forward kids_upnp kids_block_dot \
            kids_block_ssh_router kids_block_ssh_wan kids_block_ssh_lan \
            kids_block_ssh_internal kids_block_web_ui \
            lan_to_kids kids_to_lan; do
@@ -185,11 +186,16 @@ if [ -f /etc/crontabs/root ]; then
     /etc/init.d/cron restart 2>/dev/null
 fi
 
-# ── SafeSearch dnsmasq config ─────────────────────────────────────────────────
-rm -f /etc/dnsmasq.d/safesearch.conf
+# ── SafeSearch dnsmasq config (kids instance) ─────────────────────────────────
+rm -f /etc/dnsmasq.d/safesearch.conf       2>/dev/null
+rm -f /etc/dnsmasq.kids.d/safesearch.conf  2>/dev/null
+rm -f /tmp/dnsmasq.kids.d/safesearch.conf  2>/dev/null
 
 # ── DoH rules — clean up any nftables/iptables rules ─────────────────────────
 /usr/share/parental-privacy/block-doh.sh disable 2>/dev/null
+
+# ── DoT rules — clean up any nftables/iptables rules ─────────────────────────
+/usr/share/parental-privacy/block-dot.sh disable 2>/dev/null
 
 # ── Broadcast relay — stop service and remove firewall rules ──────────────────
 /usr/share/parental-privacy/broadcast-relay.sh disable 2>/dev/null

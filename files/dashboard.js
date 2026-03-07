@@ -397,6 +397,8 @@ async function updateStatus() {
         if (bsSw) bsSw.classList.toggle('on', !!data.block_search);
         const doh = $('BlockDoH');
         if (doh) doh.classList.toggle('on', !!data.doh_block);
+        const dot = $('BlockDoT');
+        if (dot) dot.classList.toggle('on', !!data.dot_block);
         const vpnSw = $('sw-vpn-block');
         if (vpnSw) vpnSw.classList.toggle('on', !!data.vpn_block);
         const undSw = $('sw-undesirable');
@@ -579,6 +581,7 @@ async function saveAll() {
                            ? $('custom-dns-ip').value
                            : selectedDNS,
         doh:           $('BlockDoH').classList.contains('on'),
+        dot:           $('BlockDoT').classList.contains('on'),
         safesearch:    $('sw-safesearch').classList.contains('on'),
         youtube_mode:  $('yt-mode-select') ? $('yt-mode-select').value : 'moderate',
         block_search:  $('sw-block-search') ? $('sw-block-search').classList.contains('on') : false,
@@ -747,6 +750,7 @@ return view.extend({
         const passwd   = (status && status.wifi_password) || '';
         const ss       = status  ? status.safesearch    : true;
         const doh      = status  ? status.doh_block     : true;
+        const dot      = status  ? status.dot_block     : true;
         const vpnSw      = status  ? status.vpn_block     : true;
         const undSw      = status  ? status.undesirable     : true;
         const relayOn  = status  ? status.broadcast_relay : true;
@@ -921,6 +925,13 @@ ${css}
         <small>${_('Blocks known DoH providers so browsers cannot silently bypass the DNS filter')}</small>
       </div>
       <div class="kn-switch ${doh ? 'on' : ''}" id="BlockDoH" onclick="this.classList.toggle('on');markUnsaved()"></div>
+    </div>
+    <div class="kn-toggle-row">
+      <div class="kn-tinfo">
+        <strong>${_('Block DNS-over-TLS (DoT) bypass')}</strong>
+        <small>${_('Blocks port 853 so devices cannot use encrypted DNS-over-TLS to bypass the DNS filter')}</small>
+      </div>
+      <div class="kn-switch ${dot ? 'on' : ''}" id="BlockDoT" onclick="this.classList.toggle('on');markUnsaved()"></div>
     </div>
     <div class="kn-toggle-row">
       <div class="kn-tinfo">
