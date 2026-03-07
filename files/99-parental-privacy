@@ -369,31 +369,6 @@ if uci get dhcp.kids_dns >/dev/null 2>&1; then
     fi
 fi
 
-# ── 3b. Kids dnsmasq DNS query logging (RAM-only, privacy-safe) ───────────────
-# Direct query logs to a dedicated RAM file — NOT the system syslog — so that
-# high-volume DNS queries never pollute logread output.  The file lives in
-# /tmp/ (tmpfs) so it is wiped automatically on every reboot.  The dashboard
-# polls rpc-get-logs and keeps only the last 50 entries in the UI.
-#
-# option logfacility  → dnsmasq writes directly to this file (not syslog)
-# option logqueries   → emit a query[] line for every DNS lookup
-#
-# We only set these when the kids_dns instance exists and the values are not
-# already correct, so repeated runs of this script are idempotent.
-if uci get dhcp.kids_dns >/dev/null 2>&1; then
-    EXISTING_LOGFAC=$(uci -q get dhcp.kids_dns.logfacility 2>/dev/null)
-    if [ "$EXISTING_LOGFAC" != "/tmp/dnsmasq-kids.log" ]; then
-        uci set dhcp.kids_dns.logfacility='/tmp/dnsmasq-kids.log'
-        logger -t parental-privacy "Set kids dnsmasq logfacility to /tmp/dnsmasq-kids.log"
-    fi
-
-    EXISTING_LOGQ=$(uci -q get dhcp.kids_dns.logqueries 2>/dev/null)
-    if [ "$EXISTING_LOGQ" != "1" ]; then
-        uci set dhcp.kids_dns.logqueries='1'
-        logger -t parental-privacy "Enabled kids dnsmasq log-queries"
-    fi
-fi
-
 # ── 4. Firewall ──────────────────────────────────────────────────────────────
 if ! uci get firewall.kids_zone >/dev/null 2>&1; then
     # Zone — no masq required, WAN zone handles NAT for all routed traffic
@@ -585,14 +560,46 @@ uci commit wireless
 # Bring up the network first — creates br-lan.<vlan> and the kids interface.
 /etc/init.d/network restart
 
-# Wait for the kids interface to fully come up before starting dependent
-# services.  dnsmasq needs to bind on the kids IP; firewall needs the zone
-# interface to exist.  ubus wait_for blocks until the ubus object appears,
-# with a 30-second timeout — reliable on any hardware, no guessing on timing.
-# Falls back to a sleep if ubus itself isn't ready (rare early-boot edge case).
+# Wait for the kids interface to be fully ready before starting dependent
+# services.  Two-phase check:
+#
+#   Phase 1 — ubus wait_for network.interface.kids
+#     Blocks until netifd has registered the interface object, confirming
+#     the network subsystem knows about it.  30-second timeout.
+#
+#   Phase 2 — ip addr show polling loop
+#     netifd fires the ubus event as soon as the netlink RTM_NEWADDR message
+#     arrives, but on some DSA/VLAN hardware the kernel assigns the address
+#     fractionally before the bridge FDB and VLAN filter tables have converged.
+#     dnsmasq bind() issued at that instant gets EADDRNOTAVAIL.  We poll
+#     until 'ip addr show' confirms the kids IP is actually reachable — this
+#     is a kernel-space guarantee rather than a timing guess.
+#
+#   Falls back to a plain sleep if ubus itself is not yet ready (rare during
+#   early first-boot where rc.local runs before ubusd is fully initialised).
+
+KIDS_IP_WAIT=$(uci -q get network.kids.ipaddr)
+KIDS_IP_WAIT=${KIDS_IP_WAIT:-172.28.${KIDS_VLAN}.1}
+
 if ! ubus wait_for network.interface.kids 2>/dev/null; then
     logger -t parental-privacy "ubus wait_for timed out — falling back to sleep"
     sleep 8
+fi
+
+# Phase 2: poll until the IP address is visible in the kernel's interface list.
+# Max 20 attempts × 1 second = 20-second ceiling; typical convergence is <3s.
+_iface_ready=0
+for _attempt in $(seq 1 20); do
+    if ip addr show 2>/dev/null | grep -qF "${KIDS_IP_WAIT}"; then
+        _iface_ready=1
+        logger -t parental-privacy "Kids interface IP ready after ${_attempt}s"
+        break
+    fi
+    sleep 1
+done
+
+if [ "$_iface_ready" = "0" ]; then
+    logger -t parental-privacy "WARNING: kids IP ${KIDS_IP_WAIT} not visible after 20s — dnsmasq may fail to bind. Check bridge/VLAN state."
 fi
 
 # dnsmasq: restart (not reload) so it picks up the new kids DHCP pool and

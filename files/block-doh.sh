@@ -15,7 +15,12 @@ case "$_lan_dev" in
     br-*)  _lan_iface="$_lan_dev" ;;
     *)     _lan_iface="br-lan"    ;;
 esac
-IFACE="${_lan_iface}.${_vlan:-10}"
+BRIDGE_MODE=$(uci -q get parental_privacy.default.bridge_mode)
+if [ "$BRIDGE_MODE" = "1" ]; then
+    IFACE="br-kids"
+else
+    IFACE="${_lan_iface}.${_vlan:-10}"
+fi
 
 # ── IPv4 DoH provider IPs ─────────────────────────────────────────────────────
 DOH_IPS4="

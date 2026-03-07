@@ -64,10 +64,13 @@ const callGetLogs = rpc.declare({
     expect: {}
 });
 
+// clear_logs is a dedicated rpcd method — the backend injects {"action":"clear"}
+// itself so no params envelope is needed here and no unwrapping is required in
+// the shell script.  Using a separate method (rather than a magic parameter on
+// get_logs) makes the ACL surface explicit and keeps each endpoint single-purpose.
 const callClearLogs = rpc.declare({
     object: 'parental-privacy',
-    method: 'get_logs',
-    params: ['data'],
+    method: 'clear_logs',
     expect: {}
 });
 
@@ -444,7 +447,7 @@ async function clearActivityLog() {
     const btn = document.getElementById('dns-log-clear-btn');
     if (btn) { btn.disabled = true; btn.textContent = _('Clearing…'); }
     try {
-        await callClearLogs({ action: 'clear' });
+        await callClearLogs();
         const box = document.getElementById('dns-log-tbody');
         if (box) box.innerHTML = '<tr><td colspan="3" style="text-align:center;color:#aaa;font-style:italic;padding:.5rem 0">' +
             _('Log cleared.') + '</td></tr>';
@@ -467,7 +470,10 @@ async function updateStatus() {
     primarySSID   = data.primary_ssid  || '';
     suggestedSSID = data.suggested_ssid || '';
 
-    $('ssid-suggestion-text').textContent = suggestedSSID;
+    const suggWrap = document.getElementById('ssid-suggestion-wrap');
+    const suggText = document.getElementById('ssid-suggestion-text');
+    if (suggText) suggText.textContent = suggestedSSID;
+    if (suggWrap) suggWrap.style.display = suggestedSSID ? '' : 'none';
 
     // Only update fields if no unsaved changes pending
     if ($('unsaved-badge').style.display === 'none') {
@@ -1200,7 +1206,9 @@ ${css}
           <div class="cbi-value-field">
             <input type="text" class="cbi-input-text" id="wifi-ssid" value="${ssid}" oninput="markUnsaved()">
             <div class="cbi-value-description">
-              <a href="#" onclick="useSuggestedSSID(); return false;">&#8634; ${_('Use suggested name:')} <span id="ssid-suggestion-text">${suggestedSSID}</span></a>
+              <span id="ssid-suggestion-wrap" style="${suggestedSSID ? '' : 'display:none'}">
+                <a href="#" onclick="useSuggestedSSID(); return false;">&#8634; ${_('Use suggested name:')} <span id="ssid-suggestion-text">${suggestedSSID}</span></a>
+              </span>
             </div>
           </div>
         </div>

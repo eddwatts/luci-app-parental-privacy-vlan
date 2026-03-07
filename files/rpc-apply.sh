@@ -218,9 +218,29 @@ write_cron_for_day() {
         echo "$em $utc_eh * * $utc_dow_e $disable_cmd  #kids_wifi" >> "$cron_file"
     done
 }
-# Define the kids interface (usually br-kids)
-KIDS_IFACE=$(uci -q get network.kids.device)
-KIDS_IFACE=${KIDS_IFACE:-br-kids}
+# ── Kids interface name ───────────────────────────────────────────────────────
+# Derive the correct kernel interface name for the kids network so that
+# nftables rules target the right interface in both installation modes.
+#
+#   Bridge mode  → br-kids       (a standalone bridge, no VLAN sub-interface)
+#   VLAN mode    → <lan>.<vlan>  (e.g. br-lan.28 — a dot-notation VLAN sub-iface)
+#
+# We cannot rely on 'uci get network.kids.device' because in bridge mode that
+# key is absent (the interface uses type=bridge, not a device reference).
+# Reading bridge_mode from UCI is the authoritative source of truth, matching
+# the logic used in block-dot.sh, block-doh.sh, and 99-parental-privacy.
+_kids_bridge_mode=$(uci -q get parental_privacy.default.bridge_mode)
+if [ "$_kids_bridge_mode" = "1" ]; then
+    KIDS_IFACE="br-kids"
+else
+    _kids_lan_dev=$(uci -q get network.lan.device 2>/dev/null)
+    case "$_kids_lan_dev" in
+        br-*) _kids_lan_iface="$_kids_lan_dev" ;;
+        *)    _kids_lan_iface="br-lan"          ;;
+    esac
+    _kids_vlan=$(uci -q get parental_privacy.default.vlan_id)
+    KIDS_IFACE="${_kids_lan_iface}.${_kids_vlan:-10}"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # STAGE: primary — DNS provider (wizard step 1)

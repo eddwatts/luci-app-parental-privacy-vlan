@@ -42,7 +42,8 @@ case "$1" in
     "blocklist_update": {},
     "pause_device":     {},
     "list_paused":      {},
-    "get_logs":         {}
+    "get_logs":         {},
+    "clear_logs":       {}
 }
 EOF
         ;;
@@ -57,6 +58,7 @@ EOF
             pause_device)     exec "$SCRIPTS/rpc-pause.sh"   ;;
             list_paused)      exec "$SCRIPTS/rpc-list-paused.sh" ;;
             get_logs)         exec "$SCRIPTS/rpc-get-logs.sh" ;;
+            clear_logs)       echo '{"action":"clear"}' | exec "$SCRIPTS/rpc-get-logs.sh" ;;
             *)
                 echo '{"error":"unknown method"}'
                 exit 1
