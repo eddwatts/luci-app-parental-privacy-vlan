@@ -27,6 +27,8 @@ TMP_DIR="/tmp/blocklist_staging"
 LIVE_FILE="${KIDS_CONF_DIR}/dns_blocklist.conf"
 BACKUP_FILE="${KIDS_CONF_DIR}/dns_blocklist.conf.bak"
 UCI_CONF="parental_privacy"
+CATALOG_URL="https://raw.githubusercontent.com/eddwatts/luci-app-parental-privacy-vlan/main/blocklists.json"
+CATALOG_FILE="/usr/share/parental-privacy/blocklists.json"
 
 # ── RAM threshold (kB) — lists flagged size_hint=large need this headroom ────
 # 32 MB free is a conservative minimum.  Most HaGeZi normal/pro lists
@@ -37,6 +39,80 @@ MEM_THRESHOLD=32768
 mkdir -p "$TMP_DIR"
 mkdir -p "$KIDS_CONF_DIR"
 rm -f "$TMP_DIR"/*
+
+# ── 0. Refresh catalog from GitHub ───────────────────────────────────────────
+# Fetch the latest blocklists.json, parse it with awk (no jq on OpenWrt), and
+# sync metadata into UCI.  Existing entries keep their enabled state untouched.
+# Brand-new upstream entries are added as disabled=0 — user opts in from dashboard.
+# Default enabled selections are written once by the installer (99-parental-privacy).
+
+logger -t "parental-privacy" "Refreshing blocklist catalog from GitHub..."
+
+CATALOG_TMP="$TMP_DIR/blocklists.json"
+if wget -q --timeout=30 -O "$CATALOG_TMP" "$CATALOG_URL"; then
+    # Verify it looks like JSON before trusting it
+    if grep -q '"id"' "$CATALOG_TMP" 2>/dev/null; then
+        cp "$CATALOG_TMP" "$CATALOG_FILE"
+        logger -t "parental-privacy" "Catalog updated from GitHub."
+    else
+        logger -t "parental-privacy" "Warning: catalog download looks invalid — keeping existing file."
+    fi
+else
+    logger -t "parental-privacy" "Warning: could not fetch catalog from GitHub — using existing file."
+fi
+
+# Sync catalog metadata into UCI.
+# For existing entries: update url/size_hint/name/description only — enabled is never touched.
+# For brand-new entries (added to the upstream JSON after install): add as disabled=0.
+# Default selections are set once by the installer (99-parental-privacy) and are not
+# re-applied here, so user changes are always preserved across nightly updates.
+if [ -f "$CATALOG_FILE" ]; then
+    awk '
+    /\{/            { id=""; name=""; url=""; size_hint="small"; desc="" }
+    /"id"/          { match($0,/"id"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); id=a[1] }
+    /"name"/        { match($0,/"name"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); name=a[1] }
+    /"url"/         { match($0,/"url"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); url=a[1] }
+    /"size_hint"/   { match($0,/"size_hint"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); size_hint=a[1] }
+    /"description"/ { match($0,/"description"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); desc=a[1] }
+    /\}/            { if (id != "") print id "|" url "|" size_hint "|" name "|" desc }
+    ' "$CATALOG_FILE" > "$TMP_DIR/catalog_parsed.txt"
+
+    while IFS='|' read -r c_id c_url c_size c_name c_desc; do
+        [ -z "$c_id" ] && continue
+        UCI_SECTION="blocklist_${c_id}"
+        existing_id=$(uci -q get "${UCI_CONF}.${UCI_SECTION}.id" 2>/dev/null)
+
+        if [ -n "$existing_id" ]; then
+            # Existing entry — refresh metadata, leave enabled untouched
+            uci -q batch <<EOI
+set ${UCI_CONF}.${UCI_SECTION}.url='${c_url}'
+set ${UCI_CONF}.${UCI_SECTION}.size_hint='${c_size}'
+set ${UCI_CONF}.${UCI_SECTION}.name='${c_name}'
+set ${UCI_CONF}.${UCI_SECTION}.description='${c_desc}'
+EOI
+        else
+            # Newly added upstream list — add as disabled; user opts in from dashboard
+            uci -q batch <<EOI
+set ${UCI_CONF}.${UCI_SECTION}=blocklist
+set ${UCI_CONF}.${UCI_SECTION}.id='${c_id}'
+set ${UCI_CONF}.${UCI_SECTION}.name='${c_name}'
+set ${UCI_CONF}.${UCI_SECTION}.url='${c_url}'
+set ${UCI_CONF}.${UCI_SECTION}.size_hint='${c_size}'
+set ${UCI_CONF}.${UCI_SECTION}.description='${c_desc}'
+set ${UCI_CONF}.${UCI_SECTION}.enabled='0'
+EOI
+            logger -t "parental-privacy" "Catalog: new list '${c_id}' added to UCI (disabled — enable from dashboard)."
+        fi
+    done < "$TMP_DIR/catalog_parsed.txt"
+
+    uci -q commit "$UCI_CONF"
+    logger -t "parental-privacy" "UCI catalog sync complete."
+else
+    logger -t "parental-privacy" "Warning: no catalog file available — skipping UCI sync."
+fi
+
+# Reload config now that UCI may have been updated by the sync above
+config_load "$UCI_CONF"
 
 # ── 1. RAM check ─────────────────────────────────────────────────────────────
 FREE_MEM=$(grep MemAvailable /proc/meminfo 2>/dev/null | awk '{print $2}')
@@ -98,7 +174,6 @@ handle_list() {
     fi
 }
 
-config_load "$UCI_CONF"
 config_foreach handle_list "blocklist"
 
 # ── 3. Deduplication & merge (done in RAM) ───────────────────────────────────

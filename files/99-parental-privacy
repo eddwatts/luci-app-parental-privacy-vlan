@@ -214,6 +214,79 @@ for day in Fri Sat; do
 done
 uci commit parental_privacy
 
+# ── Default blocklist selections ──────────────────────────────────────────────
+# Write the initial enabled/disabled state for every list in the catalog.
+# These are written once at install time.  After this point, the user's
+# selections are their own — update-blocklists.sh will update metadata
+# (url, size_hint, name) when new lists appear but will never flip enabled.
+#
+# To change the defaults, edit the two lists below before running the installer.
+#
+#   BLOCKLIST_DEFAULTS  — enabled=1 on a fresh install
+#   BLOCKLIST_DISABLED  — explicitly disabled (all other IDs also default to 0,
+#                         but listing them here makes intent clear)
+
+BLOCKLIST_DEFAULTS="hagezi_pro hagezi_tif hagezi_nsfw hagezi_gambling hagezi_rebind oisd_big"
+
+# Only write defaults if no blocklist sections exist yet (i.e. truly fresh install,
+# not a re-run or upgrade).  This preserves any selections the user has already made.
+_bl_exists=$(uci show parental_privacy 2>/dev/null | grep -c "=blocklist")
+if [ "$_bl_exists" -eq 0 ]; then
+    logger -t parental-privacy "Writing default blocklist selections..."
+
+    CATALOG_FILE="/usr/share/parental-privacy/blocklists.json"
+
+    # If the catalog JSON is already present (bundled with the package), seed UCI
+    # from it now so the dashboard shows real list names immediately — before the
+    # first nightly update-blocklists.sh run at 03:00.
+    if [ -f "$CATALOG_FILE" ] && grep -q '"id"' "$CATALOG_FILE" 2>/dev/null; then
+        awk '
+        /\{/            { id=""; name=""; url=""; size_hint="small"; desc="" }
+        /"id"/          { match($0,/"id"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); id=a[1] }
+        /"name"/        { match($0,/"name"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); name=a[1] }
+        /"url"/         { match($0,/"url"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); url=a[1] }
+        /"size_hint"/   { match($0,/"size_hint"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); size_hint=a[1] }
+        /"description"/ { match($0,/"description"[[:space:]]*:[[:space:]]*"([^"]+)"/,a); desc=a[1] }
+        /\}/            { if (id != "") print id "|" url "|" size_hint "|" name "|" desc }
+        ' "$CATALOG_FILE" | while IFS='|' read -r c_id c_url c_size c_name c_desc; do
+            [ -z "$c_id" ] && continue
+            UCI_SECTION="blocklist_${c_id}"
+
+            # Is this id in the defaults list?
+            _enabled=0
+            for _def in $BLOCKLIST_DEFAULTS; do
+                [ "$_def" = "$c_id" ] && _enabled=1 && break
+            done
+
+            uci -q batch <<EOI
+set parental_privacy.${UCI_SECTION}=blocklist
+set parental_privacy.${UCI_SECTION}.id='${c_id}'
+set parental_privacy.${UCI_SECTION}.name='${c_name}'
+set parental_privacy.${UCI_SECTION}.url='${c_url}'
+set parental_privacy.${UCI_SECTION}.size_hint='${c_size}'
+set parental_privacy.${UCI_SECTION}.description='${c_desc}'
+set parental_privacy.${UCI_SECTION}.enabled='${_enabled}'
+EOI
+        done
+        uci commit parental_privacy
+        logger -t parental-privacy "Blocklist defaults written from bundled catalog (enabled: ${BLOCKLIST_DEFAULTS})."
+    else
+        # Catalog not bundled yet — write just the default IDs as stubs.
+        # update-blocklists.sh will fill in url/name/size_hint on first run.
+        for _def in $BLOCKLIST_DEFAULTS; do
+            uci -q batch <<EOI
+set parental_privacy.blocklist_${_def}=blocklist
+set parental_privacy.blocklist_${_def}.id='${_def}'
+set parental_privacy.blocklist_${_def}.enabled='1'
+EOI
+        done
+        uci commit parental_privacy
+        logger -t parental-privacy "Blocklist stub defaults written (catalog not yet present — will be populated at 03:00)."
+    fi
+else
+    logger -t parental-privacy "Blocklist selections already exist — skipping defaults."
+fi
+
 # ── Restore schedule from backup (if a previous install was removed) ──────────
 # remove.sh writes /etc/parental-privacy/schedule.backup before wiping config.
 # If that file exists we restore the saved values on top of the defaults above,

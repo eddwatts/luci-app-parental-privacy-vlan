@@ -92,8 +92,11 @@ let logsTimer    = null;
 DAYS.forEach(d => { schedule[d] = []; });
 
 // ── Blocklist state ───────────────────────────────────────────────────────────
-const BLOCKLIST_CATALOG_URL = 'https://raw.githubusercontent.com/eddwatts/luci-app-parental-privacy-vlan/main/blocklists.json';
-let blCatalog       = [];   // fetched from GitHub
+// The blocklist catalog is maintained by update-blocklists.sh, which fetches
+// blocklists.json from GitHub at each run and syncs it into UCI.
+// The dashboard reads catalog + enabled state from the status RPC — no direct
+// GitHub fetch is needed here.
+let blCatalog       = [];   // populated from status RPC (blocklists array)
 let blEnabled       = {};   // { id: true/false } — loaded from UCI via status
 let blCustomEntries = [];   // user-added custom URLs
 
@@ -815,24 +818,27 @@ async function saveAll() {
 
 
 // ── DNS Blocklists ────────────────────────────────────────────────────────────
-// Load the catalog JSON from GitHub and render the checklist panel.
+// The catalog is fetched from GitHub by update-blocklists.sh (runs at 03:00
+// and on manual "Update Now").  The dashboard reads it back via the status RPC
+// which returns the full blocklist array from UCI.  No direct GitHub fetch here.
+
+// loadBlocklistCatalog is called from addFooter and the "Reload Catalog" button.
+// Since the catalog lives in UCI (populated by the shell script), we just
+// re-poll the status RPC to pick up any changes since page load.
 async function loadBlocklistCatalog() {
-    const panel = $('bl-catalog-panel');
+    const panel   = $('bl-catalog-panel');
     const spinner = $('bl-spinner');
     if (spinner) spinner.style.display = 'inline';
 
     try {
-        const resp = await fetch(BLOCKLIST_CATALOG_URL + '?_=' + Date.now());
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        blCatalog = await resp.json();
+        const data = await callStatus();
+        if (data) loadBlocklistState(data);
     } catch(e) {
-        if (panel) panel.innerHTML = `<div class="alert alert-warning">${_('Could not load blocklist catalog from GitHub. Check your internet connection or add lists manually below.')}</div>`;
+        if (panel) panel.innerHTML =
+            `<div class="alert alert-warning">${_('Could not load blocklist catalog. The list is refreshed from GitHub automatically at 3 AM, or click Update Now to refresh immediately.')}</div>`;
+    } finally {
         if (spinner) spinner.style.display = 'none';
-        return;
     }
-
-    if (spinner) spinner.style.display = 'none';
-    renderBlocklistCatalog();
 }
 
 function renderBlocklistCatalog() {
@@ -959,32 +965,53 @@ async function triggerBlocklistUpdate() {
     if (btn) { btn.disabled = false; btn.textContent = _('Update Now'); }
 }
 
-// Populate blEnabled from the status RPC response
+// Populate blEnabled (and blCatalog) from the status RPC response.
+// statusData.blocklists is an array of objects with:
+//   { id, name, url, size_hint, description, enabled, custom? }
 function loadBlocklistState(statusData) {
     if (!statusData || !statusData.blocklists) return;
+
     blEnabled = {};
+    blCustomEntries = [];
     const lists = statusData.blocklists;
+
     if (Array.isArray(lists)) {
+        // Rebuild catalog from UCI-sourced data (excludes custom entries)
+        blCatalog = lists
+            .filter(item => !item.custom)
+            .map(item => ({
+                id:          item.id,
+                name:        item.name        || item.id,
+                provider:    item.provider    || 'Other',
+                url:         item.url         || '',
+                size_hint:   item.size_hint   || 'small',
+                description: item.description || ''
+            }));
+
         lists.forEach(item => {
             blEnabled[item.id] = !!item.enabled;
-            // Restore custom entries
             if (item.custom && item.url) {
                 blCustomEntries.push({ id: item.id, name: item.name || item.url, url: item.url });
             }
         });
     }
+
     renderBlocklistCatalog();
     renderCustomEntries();
 
     // Update stats display
     if (statusData.dns_stats) {
-        const s = statusData.dns_stats;
+        const s  = statusData.dns_stats;
         const el = $('bl-stat-text');
         if (el && s.last_update && s.last_update !== 'Never') {
-            el.textContent = _('Last update: ') + s.last_update +
+            let txt = _('Last update: ') + s.last_update +
                 ' — ' + s.post_dupe + _(' entries') +
                 (s.saved > 0 ? ' (' + s.saved + _(' dupes removed') + ')' : '') +
                 (s.skip_count > 0 ? ' · ' + s.skip_count + _(' lists skipped (low RAM)') : '');
+            if (s.catalog_updated) {
+                txt += ' · ' + _('catalog refreshed from GitHub');
+            }
+            el.textContent = txt;
         }
     }
 }
@@ -1496,14 +1523,14 @@ ${css}
       ${_('Checked lists are downloaded and merged into a single deduplicated file at /etc/dnsmasq.kids.d/dns_blocklist.conf, which the kids dnsmasq instance picks up automatically via its confdir setting. Large HaGeZi lists are automatically substituted with the Light version when router RAM is below 32 MB free. Updates run at 3 AM to avoid peak usage. Each update is syntax-checked before going live; if it fails, the previous list is restored automatically.')}
     </div>
 
-    <!-- Catalog loaded from GitHub -->
+    <!-- Catalog — synced from GitHub nightly by update-blocklists.sh, served from UCI -->
     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:.5rem; margin-bottom:.65rem;">
       <strong>${_('Pre-configured Lists')}</strong>
       <span id="bl-spinner" style="display:none; font-size:.8rem; color:#888;">${_('Loading catalog…')}</span>
       <button class="cbi-button" onclick="loadBlocklistCatalog()" style="font-size:.8rem; padding:.25rem .75rem;">&#8635; ${_('Reload Catalog')}</button>
     </div>
     <div id="bl-catalog-panel">
-      <em style="color:#aaa; font-size:.85rem;">${_('Loading from GitHub…')}</em>
+      <em style="color:#aaa; font-size:.85rem;">${_('Loading…')}</em>
     </div>
 
     <!-- Manual / custom lists -->
@@ -1640,7 +1667,7 @@ ${css}
             updateActivityLog, clearActivityLog
         });
 
-        // Load blocklist catalog from GitHub after DOM is ready
+        // Load blocklist catalog (reads UCI state via status RPC) after DOM is ready
         loadBlocklistCatalog();
     }
 });

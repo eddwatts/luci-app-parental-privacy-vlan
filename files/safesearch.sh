@@ -14,6 +14,7 @@
 # UCI options read:
 #   parental_privacy.default.youtube_mode   moderate|strict  (default: moderate)
 #   parental_privacy.default.block_search   0|1              (default: 0)
+#   parental_privacy.default.undesirable    0|1              (default: 0)
 
 DNSMASQ_CONF="/tmp/dnsmasq.kids.d/safesearch.conf"
 # Persistent copy so the file survives reboots — parental-privacy.init
@@ -221,6 +222,8 @@ EOF
     fi
 
 	# TikTok & Snapchat Domains
+	# Hardcoded entries remain as an instant fallback; hagezi_tiktok (below)
+	# extends coverage to the full ByteDance/TikTok infrastructure when enabled.
 	TIKTOK_DOMAINS="tiktok.com tiktokv.com musical.ly byteoversea.com tiktokcdn.com"
 	SNAPCHAT_DOMAINS="snapchat.com sc-static.net snapads.com"
 	BLOCK_UNDESIRABLE=$(uci -q get parental_privacy.default.undesirable)
@@ -232,19 +235,192 @@ EOF
 	fi
 }
 
+
+# ── HaGeZi NoSafeSearch integration ──────────────────────────────────────────
+# When SafeSearch is enabled we also force-enable the hagezi_nosafesearch
+# blocklist in UCI so it is included in the next nightly update-blocklists.sh
+# run.  We also immediately append its entries to the live conf file so the
+# protection takes effect right now rather than waiting until 03:00.
+#
+# When SafeSearch is disabled we release the force — if the user had it manually
+# enabled beforehand the enabled flag is left as-is; we only ever set it to 1,
+# never force it back to 0.
+#
+HAGEZI_NOSAFESEARCH_URL="https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/nosafesearch.txt"
+HAGEZI_NOSAFESEARCH_CACHE="/tmp/hagezi_nosafesearch.cache"
+LIVE_BLOCKLIST="/etc/dnsmasq.kids.d/dns_blocklist.conf"
+
+_nosafesearch_enable_uci() {
+    # Mark the list as enabled in UCI so the nightly script includes it.
+    # Also ensure the section exists with the correct metadata in case the
+    # catalog sync hasn't run yet (e.g. right after a fresh install).
+    local _existing
+    _existing=$(uci -q get parental_privacy.blocklist_hagezi_nosafesearch.id 2>/dev/null)
+    if [ -z "$_existing" ]; then
+        uci -q batch <<EOI
+set parental_privacy.blocklist_hagezi_nosafesearch=blocklist
+set parental_privacy.blocklist_hagezi_nosafesearch.id='hagezi_nosafesearch'
+set parental_privacy.blocklist_hagezi_nosafesearch.name='No SafeSearch'
+set parental_privacy.blocklist_hagezi_nosafesearch.url='${HAGEZI_NOSAFESEARCH_URL}'
+set parental_privacy.blocklist_hagezi_nosafesearch.size_hint='small'
+set parental_privacy.blocklist_hagezi_nosafesearch.description='Blocks search engines that do not support or enforce a Strict SafeSearch mode.'
+set parental_privacy.blocklist_hagezi_nosafesearch.enabled='1'
+EOI
+    else
+        uci -q set parental_privacy.blocklist_hagezi_nosafesearch.enabled='1'
+    fi
+    uci -q commit parental_privacy
+}
+
+_nosafesearch_append_live() {
+    # Download (or use cache) and append the list's entries directly to the
+    # live blocklist conf so they take effect immediately on dnsmasq restart.
+    # If the live blocklist file doesn't exist yet we skip — it will be created
+    # by update-blocklists.sh at 03:00 and the UCI enabled flag ensures the
+    # list is included at that point.
+    [ -f "$LIVE_BLOCKLIST" ] || return
+
+    # Use cache if present (cleared on reboot, re-fetched once per boot)
+    if [ ! -s "$HAGEZI_NOSAFESEARCH_CACHE" ]; then
+        logger -t parental-privacy "SafeSearch: fetching hagezi_nosafesearch list..."
+        if wget -q --timeout=20 -O "${HAGEZI_NOSAFESEARCH_CACHE}.tmp" "$HAGEZI_NOSAFESEARCH_URL" 2>/dev/null; then
+            if grep -qE '^(address|server)=/' "${HAGEZI_NOSAFESEARCH_CACHE}.tmp" 2>/dev/null; then
+                mv "${HAGEZI_NOSAFESEARCH_CACHE}.tmp" "$HAGEZI_NOSAFESEARCH_CACHE"
+                logger -t parental-privacy "SafeSearch: hagezi_nosafesearch fetched ($(wc -l < "$HAGEZI_NOSAFESEARCH_CACHE") lines)."
+            else
+                rm -f "${HAGEZI_NOSAFESEARCH_CACHE}.tmp"
+                logger -t parental-privacy "SafeSearch: hagezi_nosafesearch download invalid — skipping live append."
+                return
+            fi
+        else
+            rm -f "${HAGEZI_NOSAFESEARCH_CACHE}.tmp"
+            logger -t parental-privacy "SafeSearch: hagezi_nosafesearch download failed — will be included at next 03:00 update."
+            return
+        fi
+    fi
+
+    # Only append if entries aren't already present (idempotent)
+    if grep -q "# hagezi_nosafesearch" "$LIVE_BLOCKLIST" 2>/dev/null; then
+        logger -t parental-privacy "SafeSearch: hagezi_nosafesearch already present in live blocklist."
+        return
+    fi
+
+    {
+        echo ""
+        echo "# hagezi_nosafesearch — appended by safesearch.sh"
+        grep -E '^(address|server)=/' "$HAGEZI_NOSAFESEARCH_CACHE"
+    } >> "$LIVE_BLOCKLIST"
+
+    logger -t parental-privacy "SafeSearch: hagezi_nosafesearch appended to live blocklist."
+}
+
+_nosafesearch_remove_live() {
+    # Remove the entries appended by safesearch.sh from the live blocklist.
+    # Uses sed to strip from the marker comment to the next blank line or EOF.
+    [ -f "$LIVE_BLOCKLIST" ] || return
+    if grep -q "# hagezi_nosafesearch" "$LIVE_BLOCKLIST" 2>/dev/null; then
+        sed -i '/^# hagezi_nosafesearch/,/^$/d' "$LIVE_BLOCKLIST"
+        logger -t parental-privacy "SafeSearch: hagezi_nosafesearch removed from live blocklist."
+    fi
+}
+
+
+# ── HaGeZi TikTok integration ─────────────────────────────────────────────────
+# When the "undesirable" block is enabled we also force-enable hagezi_tiktok in
+# UCI and immediately append its entries to the live blocklist.  This extends
+# the hardcoded TikTok/Snapchat domain list with HaGeZi's full coverage of
+# ByteDance tracking, fingerprinting CDNs, and TikTok infrastructure domains.
+#
+# On disable we remove the appended block from the live file.  The UCI enabled
+# flag is never forced back to 0 — user's own selection is always preserved.
+HAGEZI_TIKTOK_URL="https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/tiktok.txt"
+HAGEZI_TIKTOK_CACHE="/tmp/hagezi_tiktok.cache"
+
+_tiktok_enable_uci() {
+    local _existing
+    _existing=$(uci -q get parental_privacy.blocklist_hagezi_tiktok.id 2>/dev/null)
+    if [ -z "$_existing" ]; then
+        uci -q batch <<EOI
+set parental_privacy.blocklist_hagezi_tiktok=blocklist
+set parental_privacy.blocklist_hagezi_tiktok.id='hagezi_tiktok'
+set parental_privacy.blocklist_hagezi_tiktok.name='TikTok Block'
+set parental_privacy.blocklist_hagezi_tiktok.url='${HAGEZI_TIKTOK_URL}'
+set parental_privacy.blocklist_hagezi_tiktok.size_hint='small'
+set parental_privacy.blocklist_hagezi_tiktok.description='Specific block for TikTok and its tracking/fingerprinting infrastructure.'
+set parental_privacy.blocklist_hagezi_tiktok.enabled='1'
+EOI
+    else
+        uci -q set parental_privacy.blocklist_hagezi_tiktok.enabled='1'
+    fi
+    uci -q commit parental_privacy
+}
+
+_tiktok_append_live() {
+    [ -f "$LIVE_BLOCKLIST" ] || return
+
+    if [ ! -s "$HAGEZI_TIKTOK_CACHE" ]; then
+        logger -t parental-privacy "SafeSearch: fetching hagezi_tiktok list..."
+        if wget -q --timeout=20 -O "${HAGEZI_TIKTOK_CACHE}.tmp" "$HAGEZI_TIKTOK_URL" 2>/dev/null; then
+            if grep -qE '^(address|server)=/' "${HAGEZI_TIKTOK_CACHE}.tmp" 2>/dev/null; then
+                mv "${HAGEZI_TIKTOK_CACHE}.tmp" "$HAGEZI_TIKTOK_CACHE"
+                logger -t parental-privacy "SafeSearch: hagezi_tiktok fetched ($(wc -l < "$HAGEZI_TIKTOK_CACHE") lines)."
+            else
+                rm -f "${HAGEZI_TIKTOK_CACHE}.tmp"
+                logger -t parental-privacy "SafeSearch: hagezi_tiktok download invalid — skipping live append."
+                return
+            fi
+        else
+            rm -f "${HAGEZI_TIKTOK_CACHE}.tmp"
+            logger -t parental-privacy "SafeSearch: hagezi_tiktok download failed — will be included at next 03:00 update."
+            return
+        fi
+    fi
+
+    if grep -q "# hagezi_tiktok" "$LIVE_BLOCKLIST" 2>/dev/null; then
+        logger -t parental-privacy "SafeSearch: hagezi_tiktok already present in live blocklist."
+        return
+    fi
+
+    {
+        echo ""
+        echo "# hagezi_tiktok — appended by safesearch.sh"
+        grep -E '^(address|server)=/' "$HAGEZI_TIKTOK_CACHE"
+    } >> "$LIVE_BLOCKLIST"
+
+    logger -t parental-privacy "SafeSearch: hagezi_tiktok appended to live blocklist."
+}
+
+_tiktok_remove_live() {
+    [ -f "$LIVE_BLOCKLIST" ] || return
+    if grep -q "# hagezi_tiktok" "$LIVE_BLOCKLIST" 2>/dev/null; then
+        sed -i '/^# hagezi_tiktok/,/^$/d' "$LIVE_BLOCKLIST"
+        logger -t parental-privacy "SafeSearch: hagezi_tiktok removed from live blocklist."
+    fi
+}
+
+
 enable_safesearch() {
     mkdir -p /tmp/dnsmasq.kids.d
     mkdir -p /etc/dnsmasq.kids.d
     write_conf
-    # Persist to flash so the file survives a reboot
     cp "$DNSMASQ_CONF" "$DNSMASQ_CONF_PERSIST"
+    _nosafesearch_enable_uci
+    _nosafesearch_append_live
+    # Enable hagezi_tiktok if undesirable block is on
+    BLOCK_UNDESIRABLE=$(uci -q get parental_privacy.default.undesirable)
+    if [ "$BLOCK_UNDESIRABLE" = "1" ]; then
+        _tiktok_enable_uci
+        _tiktok_append_live
+    fi
     /etc/init.d/dnsmasq restart
-    logger -t parental-privacy "SafeSearch enabled (Google, Bing, YouTube ${YOUTUBE_MODE}, DuckDuckGo, Brave, Pixabay; block_search=${BLOCK_SEARCH})"
+    logger -t parental-privacy "SafeSearch enabled (YouTube=${YOUTUBE_MODE}; block_search=${BLOCK_SEARCH}; nosafesearch=1; tiktok=${BLOCK_UNDESIRABLE})"
 }
 
 disable_safesearch() {
     rm -f "$DNSMASQ_CONF"
     rm -f "$DNSMASQ_CONF_PERSIST"
+    _nosafesearch_remove_live
+    _tiktok_remove_live
     /etc/init.d/dnsmasq restart
     logger -t parental-privacy "SafeSearch disabled"
 }
