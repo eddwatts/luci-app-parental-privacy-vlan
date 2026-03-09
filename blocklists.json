@@ -1,43 +1,291 @@
 [
   {
-    "id": "hagezi_multi_light",
-    "name": "HaGeZi Multi Light",
+    "id": "hagezi_light",
+    "name": "Multi Light",
     "provider": "HaGeZi",
     "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/multi.light.txt",
     "size_hint": "small",
-    "description": "Lightweight protection against ads, trackers and malicious sites. Safe for low-RAM routers."
+    "description": "Basic protection against ads and trackers. Minimal breakage risk for low-resource devices."
   },
   {
-    "id": "hagezi_multi",
-    "name": "HaGeZi Multi Normal",
+    "id": "hagezi_normal",
+    "name": "Multi Normal",
     "provider": "HaGeZi",
     "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/multi.txt",
-    "size_hint": "large",
-    "description": "Standard protection against ads, trackers and malicious sites. Requires ~32 MB free RAM."
+    "size_hint": "medium",
+    "description": "Balanced protection for everyday use. Adds OISD sources to the Light base."
   },
   {
-    "id": "hagezi_multi_pro",
-    "name": "HaGeZi Multi Pro",
+    "id": "hagezi_pro",
+    "name": "Multi Pro",
     "provider": "HaGeZi",
     "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/pro.txt",
     "size_hint": "large",
-    "description": "Comprehensive protection. Larger than Normal — requires ~64 MB free RAM."
+    "description": "The recommended base. Extended protection against ads, trackers, and malicious sites."
+  },
+  {
+    "id": "hagezi_pro_plus",
+    "name": "Multi Pro++",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/pro.plus.txt",
+    "size_hint": "large",
+    "description": "Maximum protection. Blocks more aggressive tracking and metrics (Higher breakage risk)."
+  },
+  {
+    "id": "hagezi_ultimate",
+    "name": "Multi Ultimate",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/ultimate.txt",
+    "size_hint": "extra-large",
+    "description": "The most aggressive list. Includes almost all other specialized extensions."
   },
   {
     "id": "hagezi_tif",
-    "name": "HaGeZi Threat Intelligence Feeds",
+    "name": "Threat Intelligence (TIF)",
     "provider": "HaGeZi",
     "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/tif.txt",
-    "size_hint": "large",
-    "description": "Blocks domains used in active malware campaigns and phishing. Requires ~32 MB free RAM."
+    "size_hint": "medium",
+    "description": "Critical security feed targeting scams, phishing, and malware C2 infrastructure."
+  },
+  {
+    "id": "hagezi_tif_medium",
+    "name": "TIF Medium",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/tif.medium.txt",
+    "size_hint": "medium",
+    "description": "Balanced Threat Intelligence feed between Light and Full."
+  },
+  {
+    "id": "hagezi_tif_light",
+    "name": "TIF Light",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/tif.light.txt",
+    "size_hint": "small",
+    "description": "Lightweight version of the Threat Intelligence Feed for low-RAM devices."
+  },
+  {
+    "id": "hagezi_nsfw",
+    "name": "NSFW / Adult",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/nsfw.txt",
+    "size_hint": "medium",
+    "description": "Blocks adult content, pornography, and shock sites."
+  },
+  {
+    "id": "hagezi_gambling",
+    "name": "Gambling",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/gambling.txt",
+    "size_hint": "small",
+    "description": "Blocks online casinos, betting, and gambling platforms."
+  },
+  {
+    "id": "hagezi_social",
+    "name": "Social Networks",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/social.txt",
+    "size_hint": "medium",
+    "description": "Blocks all major social media platforms (Facebook, TikTok, etc.)."
+  },
+  {
+    "id": "hagezi_bypass",
+    "name": "Bypass Prevention",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/doh-vpn-proxy-bypass.txt",
+    "size_hint": "medium",
+    "description": "Blocks VPNs, Proxies, and DoH providers used to bypass filtering."
   },
   {
     "id": "hagezi_doh",
-    "name": "HaGeZi DoH/VPN/TOR/Proxy Bypass",
+    "name": "Encrypted DNS Only",
     "provider": "HaGeZi",
-    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/doh-vpn-proxy-bypass.txt",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/doh.txt",
     "size_hint": "small",
-    "description": "Blocks known DNS-over-HTTPS providers and proxy/VPN bypass services at DNS level."
+    "description": "Targeted block for DNS-over-HTTPS and DNS-over-TLS providers."
+  },
+  {
+    "id": "hagezi_dyndns",
+    "name": "Dynamic DNS",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/dyndns.txt",
+    "size_hint": "small",
+    "description": "Blocks often-abused Dynamic DNS services used for malware hosting."
+  },
+  {
+    "id": "hagezi_nosafesearch",
+    "name": "No SafeSearch",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/nosafesearch.txt",
+    "size_hint": "small",
+    "description": "Blocks search engines that do not support or enforce a Strict SafeSearch mode."
+  },
+  {
+    "id": "hagezi_hoster",
+    "name": "Badware Hoster",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/hoster.txt",
+    "size_hint": "medium",
+    "description": "Blocks hosting services known to frequently host malicious software."
+  },
+  {
+    "id": "hagezi_fake",
+    "name": "Fake & Scam",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/fake.txt",
+    "size_hint": "small",
+    "description": "Blocks fake shops, fraudulent sites, and scam landing pages."
+  },
+  {
+    "id": "hagezi_anti_piracy",
+    "name": "Anti-Piracy",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/anti-piracy.txt",
+    "size_hint": "medium",
+    "description": "Blocks torrent sites, warez, and illegal streaming platforms."
+  },
+  {
+    "id": "hagezi_tlds",
+    "name": "Abused TLDs",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/tlds.txt",
+    "size_hint": "small",
+    "description": "Blocks risky Top Level Domains (like .zip, .top, .surf) commonly used for malware."
+  },
+  {
+    "id": "hagezi_tracking",
+    "name": "Tracking Extension",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/tracking-extension.txt",
+    "size_hint": "small",
+    "description": "Extra telemetry and tracking protection (Included in Pro+)."
+  },
+  {
+    "id": "hagezi_popup",
+    "name": "Pop-up Ads",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/popupads.txt",
+    "size_hint": "small",
+    "description": "Blocks malicious and annoying pop-up infrastructure."
+  },
+  {
+    "id": "hagezi_enc",
+    "name": "Encrypted Ads",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/enc.txt",
+    "size_hint": "small",
+    "description": "Targeted blocks for ads served via encrypted/obfuscated channels."
+  },
+  {
+    "id": "hagezi_native_ger",
+    "name": "Native - Germany",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/native.ger.txt",
+    "size_hint": "small",
+    "description": "Regional ad/tracker blocks for German-speaking users."
+  },
+  {
+    "id": "hagezi_native_fra",
+    "name": "Native - France",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/native.fra.txt",
+    "size_hint": "small",
+    "description": "Regional ad/tracker blocks for French-speaking users."
+  },
+  {
+    "id": "hagezi_native_rus",
+    "name": "Native - Russia",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/native.rus.txt",
+    "size_hint": "small",
+    "description": "Regional ad/tracker blocks for Russian-speaking users."
+  },
+  {
+    "id": "hagezi_native_chn",
+    "name": "Native - China",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/native.chn.txt",
+    "size_hint": "small",
+    "description": "Regional ad/tracker blocks for Chinese users."
+  },
+  {
+    "id": "hagezi_top_native",
+    "name": "Top Native",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/native.txt",
+    "size_hint": "medium",
+    "description": "Consolidated regional blocks for the most common languages."
+  },
+  {
+    "id": "hagezi_threat_intel",
+    "name": "Threat Intel (Generic)",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/threat-intel.txt",
+    "size_hint": "medium",
+    "description": "Broad threat intelligence feed covering various cyber threats."
+  },
+  {
+    "id": "hagezi_apple",
+    "name": "Apple Services",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/apple.txt",
+    "size_hint": "small",
+    "description": "Blocks Apple telemetry and service tracking."
+  },
+  {
+    "id": "hagezi_microsoft",
+    "name": "Microsoft/Windows Services",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/windows.txt",
+    "size_hint": "small",
+    "description": "Blocks Windows telemetry and Microsoft data collection."
+  },
+  {
+    "id": "hagezi_tiktok",
+    "name": "TikTok Block",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/tiktok.txt",
+    "size_hint": "small",
+    "description": "Specific block for TikTok and its tracking/fingerprinting infrastructure."
+  },
+  {
+    "id": "hagezi_firetv",
+    "name": "Amazon FireTV",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/firetv.txt",
+    "size_hint": "small",
+    "description": "Blocks Amazon FireTV telemetry and tracking."
+  },
+  {
+    "id": "hagezi_samsung",
+    "name": "Samsung TV",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/samsungtv.txt",
+    "size_hint": "small",
+    "description": "Blocks Samsung Smart TV telemetry and tracking."
+  },
+  {
+    "id": "hagezi_lg",
+    "name": "LG TV",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/lgtv.txt",
+    "size_hint": "small",
+    "description": "Blocks LG Smart TV telemetry and tracking."
+  },
+  {
+    "id": "hagezi_xiaomi",
+    "name": "Xiaomi Services",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/xiaomi.txt",
+    "size_hint": "small",
+    "description": "Blocks Xiaomi device telemetry and tracking."
+  },
+  {
+    "id": "hagezi_rebind",
+    "name": "DNS Rebind Protection",
+    "provider": "HaGeZi",
+    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/dns-rebind-protection.txt",
+    "size_hint": "small",
+    "description": "Prevents DNS rebinding attacks against local network services."
   },
   {
     "id": "oisd_nsfw",
@@ -54,29 +302,5 @@
     "url": "https://big.oisd.nl/dnsmasq2",
     "size_hint": "large",
     "description": "Large general-purpose blocklist covering ads, trackers, and malware. Requires ~48 MB free RAM."
-  },
-  {
-    "id": "oisd_small",
-    "name": "OISD Small",
-    "provider": "OISD",
-    "url": "https://small.oisd.nl/dnsmasq2",
-    "size_hint": "small",
-    "description": "Conservative subset of the OISD Big list. Low false-positive rate, suitable for all routers."
-  },
-  {
-    "id": "hagezi_gambling",
-    "name": "HaGeZi Gambling",
-    "provider": "HaGeZi",
-    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/gambling.txt",
-    "size_hint": "small",
-    "description": "Blocks gambling and betting websites."
-  },
-  {
-    "id": "hagezi_native_tracker",
-    "name": "HaGeZi Native Tracker",
-    "provider": "HaGeZi",
-    "url": "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/dnsmasq/native.combined.txt",
-    "size_hint": "small",
-    "description": "Blocks native device telemetry from Amazon, Apple, Huawei, LG, Roku, Samsung and others."
   }
 ]
